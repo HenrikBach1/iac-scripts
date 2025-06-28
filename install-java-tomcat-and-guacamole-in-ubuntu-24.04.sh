@@ -612,13 +612,38 @@ EOF
 
 echo "Created Guacamole properties file"
 
-# Create default user mapping with better security
+# Create default user mapping with better security and comprehensive SSH setup
 cat > /etc/guacamole/user-mapping.xml <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <user-mapping>
     
     <!-- Default admin user (change password after first login) -->
     <authorize username="guacadmin" password="guacadmin">
+        
+        <!-- SSH with optimized timeout settings (requires SSH key or password setup) -->
+        <connection name="Local SSH">
+            <protocol>ssh</protocol>
+            <param name="hostname">localhost</param>
+            <param name="port">22</param>
+            <param name="username">root</param>
+            <param name="color-scheme">green-black</param>
+            <param name="font-size">12</param>
+            <!-- Optimized timeout and connection parameters to prevent disconnects -->
+            <param name="server-alive-interval">10</param>
+            <param name="server-keepalive-interval">5</param>
+            <param name="backspace">127</param>
+            <param name="terminal-type">xterm-256color</param>
+            <!-- Connection timeout and retry settings -->
+            <param name="connect-timeout">10</param>
+            <param name="login-timeout">15</param>
+            <!-- SSH connection optimization -->
+            <param name="host-key">any</param>
+            <param name="enable-compression">true</param>
+            <param name="scrollback">2000</param>
+            <!-- Enable SFTP for file transfer -->
+            <param name="enable-sftp">true</param>
+            <param name="sftp-root-directory">/</param>
+        </connection>
         
         <!-- Example VNC connection -->
         <connection name="Local VNC">
@@ -638,15 +663,6 @@ cat > /etc/guacamole/user-mapping.xml <<EOF
             <param name="security">any</param>
             <param name="ignore-cert">true</param>
             <param name="color-depth">24</param>
-        </connection>
-        
-        <!-- Example SSH connection -->
-        <connection name="Local SSH">
-            <protocol>ssh</protocol>
-            <param name="hostname">localhost</param>
-            <param name="port">22</param>
-            <param name="color-scheme">green-black</param>
-            <param name="font-size">12</param>
         </connection>
         
     </authorize>
@@ -806,6 +822,17 @@ if [ "$DEPLOYMENT_SUCCESS" = true ]; then
     echo "   View logs: journalctl -u tomcat9 -f"
     echo "   Stop services: systemctl stop tomcat9 guacd"
     echo "   Check public IP: curl -4 -s ifconfig.me"
+    echo ""
+    echo "🔧 SSH Connection Troubleshooting:"
+    echo "   If SSH connections don't work, run the unified fix:"
+    echo "   1. ./fix-guacamole-ssh.sh (comprehensive solution)"
+    echo "   2. Creates 3 SSH connection methods (root key, user key, user password)"
+    echo "   3. Sets up proper authentication and timeout parameters"
+    echo "   4. Tests all connections and provides detailed diagnostics"
+    echo "   5. Manual steps: Edit /etc/guacamole/user-mapping.xml"
+    echo "   6. Add username/password or SSH key to connections"
+    echo "   7. Check SSH server: sudo systemctl status ssh"
+    echo "   8. Test direct SSH: ssh username@hostname"
     
 else
     echo -e "\n❌ \033[1;31mSelf-Healing Installation Failed\033[0m"
