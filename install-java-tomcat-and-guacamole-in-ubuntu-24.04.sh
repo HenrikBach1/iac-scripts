@@ -29,6 +29,23 @@ echo "✓ Secure subdirectory deployment: /guacamole/"
 echo "✓ Self-healing installation with automatic problem resolution"
 echo ""
 
+# Utility function to get public IP
+get_public_ip() {
+    local ip=""
+    # Try multiple services with timeouts
+    ip=$(curl -4 -s --connect-timeout 5 ifconfig.me 2>/dev/null) || \
+    ip=$(curl -4 -s --connect-timeout 5 ipinfo.io/ip 2>/dev/null) || \
+    ip=$(curl -4 -s --connect-timeout 5 icanhazip.com 2>/dev/null) || \
+    ip=$(dig +short myip.opendns.com @resolver1.opendns.com 2>/dev/null)
+    
+    # Validate IP format
+    if [[ "$ip" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+        echo "$ip"
+    else
+        echo ""
+    fi
+}
+
 # Self-healing functions for automatic problem resolution
 auto_fix_deployment_issues() {
     local issue_type="$1"
@@ -744,7 +761,14 @@ if [ "$DEPLOYMENT_SUCCESS" = true ]; then
     echo "🌐 Access Methods:"
     echo "   Local:     http://localhost:8080${ACCESS_PATH}"
     echo "   LAN:       http://$(hostname -I | awk '{print $1}'):8080${ACCESS_PATH}"
-    echo "   Public:    http://YOUR_PUBLIC_IP:8080${ACCESS_PATH}"
+    
+    # Get public IP with fallbacks
+    PUBLIC_IP=$(get_public_ip)
+    if [ -n "$PUBLIC_IP" ]; then
+        echo "   Public:    http://${PUBLIC_IP}:8080${ACCESS_PATH}"
+    else
+        echo "   Public:    http://YOUR_PUBLIC_IP:8080${ACCESS_PATH} (check your public IP)"
+    fi
     echo ""
     echo "🔥 Quick Test:"
     echo "   curl -I http://localhost:8080${ACCESS_PATH}"
@@ -767,6 +791,7 @@ if [ "$DEPLOYMENT_SUCCESS" = true ]; then
     echo "   Restart services: systemctl restart guacd tomcat9"
     echo "   View logs: journalctl -u tomcat9 -f"
     echo "   Stop services: systemctl stop tomcat9 guacd"
+    echo "   Check public IP: curl -4 -s ifconfig.me"
     
 else
     echo -e "\n❌ \033[1;31mSelf-Healing Installation Failed\033[0m"
@@ -818,12 +843,19 @@ if [ "$DEPLOYMENT_SUCCESS" = true ]; then
     echo "==============================================="
     
     SERVER_IP=$(hostname -I | awk '{print $1}')
+    PUBLIC_IP=$(get_public_ip)
     
     echo "✅ Guacamole is ready! Access using:"
     echo ""
     echo "🌐 Primary Access URL:"
     echo "   http://localhost:8080${ACCESS_PATH}"
     echo "   http://${SERVER_IP}:8080${ACCESS_PATH}"
+    
+    if [ -n "$PUBLIC_IP" ]; then
+        echo "   http://${PUBLIC_IP}:8080${ACCESS_PATH}"
+    else
+        echo "   http://YOUR_PUBLIC_IP:8080${ACCESS_PATH} (determine your public IP)"
+    fi
     echo ""
     echo "👤 Login Credentials:"
     echo "   Username: guacadmin"
