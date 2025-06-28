@@ -340,7 +340,22 @@ if systemctl is-active --quiet tomcat9 && systemctl is-active --quiet guacd; the
             echo "Guacamole appears to be already installed and running properly."
             echo "Current status:"
             systemctl status tomcat9 --no-pager -l
-            echo "Access URL: http://your-server-ip:8080${ACCESS_PATH}"
+            
+            # Show actual access URLs
+            SERVER_IP=$(hostname -I | awk '{print $1}')
+            PUBLIC_IP=$(get_public_ip)
+            
+            echo ""
+            echo "🌐 Access URLs:"
+            echo "   Local:  http://localhost:8080${ACCESS_PATH}"
+            echo "   LAN:    http://${SERVER_IP}:8080${ACCESS_PATH}"
+            if [ -n "$PUBLIC_IP" ]; then
+                echo "   Public: http://${PUBLIC_IP}:8080${ACCESS_PATH}"
+            else
+                echo "   Public: http://YOUR_PUBLIC_IP:8080${ACCESS_PATH} (check: curl -4 -s ifconfig.me)"
+            fi
+            
+            echo ""
             echo "To force reinstallation, stop services first: systemctl stop tomcat9 guacd"
             exit 0
         fi
@@ -754,8 +769,7 @@ echo "=== INSTALLATION VERIFICATION ==="
 if [ "$DEPLOYMENT_SUCCESS" = true ]; then
     echo -e "\n🎉 \033[1;32mInstallation SUCCESSFUL - Self-Healing Complete!\033[0m"
     echo ""
-    echo "📍 Guacamole is running at: http://your-server-ip:8080${ACCESS_PATH}"
-    echo "👤 Default credentials: guacadmin/guacadmin"
+    echo " Default credentials: guacadmin/guacadmin"
     echo "⚠️  IMPORTANT: Change the default password after first login!"
     echo ""
     echo "🌐 Access Methods:"
