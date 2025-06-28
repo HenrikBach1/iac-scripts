@@ -1,6 +1,34 @@
-# ansible-scripts
+# Infrastructure as Code Scripts
 
-This repository contains Ansible scripts and supporting shell scripts for setting up and managing environments.
+This repository contains automation scripts for setting up and managing various development and production environments.
+
+## Apache Guacamole Installation
+
+The `install-java-tomcat-and-guacamole-in-ubuntu-24.04.sh` script provides a robust, self-healing installation of Apache Guacamole on Ubuntu 24.04.
+
+### Key Features:
+
+- **Production-Ready**: Deploys Guacamole 1.5.5 with Tomcat 9 for optimal compatibility
+- **Self-Healing**: Automatically detects and fixes common deployment issues
+- **Java EE Compatible**: Uses Tomcat 9 to avoid Jakarta EE servlet API conflicts
+- **Secure Deployment**: Deploys as subdirectory webapp (`/guacamole/`) rather than ROOT
+- **Comprehensive Testing**: Includes full verification script
+
+### Quick Start:
+
+```bash
+# Install Guacamole
+sudo ./install-java-tomcat-and-guacamole-in-ubuntu-24.04.sh
+
+# Verify installation
+sudo ./test-guacamole-installer.sh
+```
+
+### Access:
+- **URL**: `http://your-server:8080/guacamole/`
+- **Default Credentials**: `guacadmin/guacadmin` (change immediately!)
+
+For detailed installation instructions, troubleshooting, and testing information, see [GUACAMOLE-INSTALLATION.md](GUACAMOLE-INSTALLATION.md).
 
 ## ROS2 Docker Container
 
@@ -86,3 +114,22 @@ Custom commands available inside the container:
 - `source_ros`: A wrapper script to run commands with the ROS2 environment sourced
 
 For more details on using these commands and accessing the container via VS Code, see [VSCODE_CONTAINER_ACCESS.md](VSCODE_CONTAINER_ACCESS.md).
+
+## Available Scripts
+
+### Infrastructure & Services
+- **[Guacamole Installation](GUACAMOLE-INSTALLATION.md)**: Complete Apache Guacamole deployment with Tomcat 9
+  - `install-java-tomcat-and-guacamole-in-ubuntu-24.04.sh` - Main installation script
+  - `test-guacamole-installer.sh` - Comprehensive verification testing
+- **Docker User Management**: `add-user-to-docker.yml` - Ansible playbook for Docker access
+- **Java & Tomcat Setup**: Automated installation and configuration scripts
+
+### Development Containers
+- **ROS2 Development**: `run-ros2-container.sh` - Full ROS2 development environment
+- **Container Management**: Scripts for persistent container workflows
+- **VS Code Integration**: Remote development setup and configuration
+
+### Documentation
+- **[Guacamole Installation Guide](GUACAMOLE-INSTALLATION.md)**: Comprehensive installation and troubleshooting
+- **[VS Code Container Access](VSCODE_CONTAINER_ACCESS.md)**: Remote development setup
+- **[Main README](README.md)**: This overview document

@@ -179,7 +179,7 @@ run_test "Java 17 installation" "java -version 2>&1 | grep -q 'openjdk version \
 run_test "Java 17 as default" "java -version 2>&1 | head -1 | grep -q '17\\.'" "pass" "Set Java 17 as default: update-alternatives --set java /usr/lib/jvm/java-17-openjdk-amd64/bin/java"
 
 # Test package installations
-run_test "Tomcat 10 package installed" "dpkg -l | grep -q tomcat10" "pass" "Install Tomcat 10: apt install tomcat10"
+run_test "Tomcat 9 manual installation" "[ -d /opt/tomcat9 ] && [ -f /opt/tomcat9/bin/catalina.sh ]" "pass" "Manual Tomcat 9 installation required (Ubuntu 24.04 compatibility)"
 run_test "Guacd package installed" "dpkg -l | grep -q guacd" "pass" "Install Guacd: apt install guacd"
 run_test "Required libraries installed" "dpkg -l | grep -q libguac-client" "pass" "Install Guacamole libraries: apt install libguac-client-*"
 
@@ -189,9 +189,9 @@ echo "────────────────────────�
 
 # Test service status
 run_test "Guacd service running" "systemctl is-active --quiet guacd" "pass" "Start Guacd: systemctl start guacd"
-run_test "Tomcat 10 service running" "systemctl is-active --quiet tomcat10" "pass" "Start Tomcat: systemctl start tomcat10"
+run_test "Tomcat 9 service running" "systemctl is-active --quiet tomcat9" "pass" "Start Tomcat: systemctl start tomcat9"
 run_test "Guacd service enabled" "systemctl is-enabled --quiet guacd" "pass" "Enable Guacd: systemctl enable guacd"
-run_test "Tomcat 10 service enabled" "systemctl is-enabled --quiet tomcat10" "pass" "Enable Tomcat: systemctl enable tomcat10"
+run_test "Tomcat 9 service enabled" "systemctl is-enabled --quiet tomcat9" "pass" "Enable Tomcat: systemctl enable tomcat9"
 
 echo ""
 echo "3️⃣ PORT BINDING TEST"
@@ -210,19 +210,19 @@ echo "4️⃣ FILE SYSTEM TEST"
 echo "──────────────────────"
 
 # Test file/directory existence
-run_test "Guacamole WAR deployed" "[ -f /var/lib/tomcat10/webapps/guacamole.war ]" "pass"
-run_test "Guacamole webapp extracted" "[ -d /var/lib/tomcat10/webapps/guacamole ]" "pass"
-run_test "WEB-INF directory exists" "[ -d /var/lib/tomcat10/webapps/guacamole/WEB-INF ]" "pass"
-run_test "web.xml exists" "[ -f /var/lib/tomcat10/webapps/guacamole/WEB-INF/web.xml ]" "pass"
+run_test "Guacamole WAR deployed" "[ -f /opt/tomcat9/webapps/guacamole.war ]" "pass"
+run_test "Guacamole webapp extracted" "[ -d /opt/tomcat9/webapps/guacamole ]" "pass"
+run_test "WEB-INF directory exists" "[ -d /opt/tomcat9/webapps/guacamole/WEB-INF ]" "pass"
+run_test "web.xml exists" "[ -f /opt/tomcat9/webapps/guacamole/WEB-INF/web.xml ]" "pass"
 
 # Test configuration files
 run_test "Guacamole config directory" "[ -d /etc/guacamole ]" "pass"
 run_test "Guacamole properties file" "[ -f /etc/guacamole/guacamole.properties ]" "pass"
 run_test "User mapping file" "[ -f /etc/guacamole/user-mapping.xml ]" "pass"
-run_test "Configuration symlink" "[ -L /usr/share/tomcat10/.guacamole ]" "pass"
+run_test "Configuration symlink" "[ -L /opt/tomcat9/.guacamole ]" "pass"
 
 # Test file permissions
-run_test "Tomcat owns webapp files" "[ \$(stat -c %U /var/lib/tomcat10/webapps/guacamole.war) = 'tomcat' ]" "pass"
+run_test "Tomcat owns webapp files" "[ \$(stat -c %U /opt/tomcat9/webapps/guacamole.war) = 'tomcat' ]" "pass"
 run_test "Tomcat owns config files" "[ \$(stat -c %U /etc/guacamole/guacamole.properties) = 'tomcat' ]" "pass"
 
 echo ""
@@ -280,7 +280,7 @@ echo "8️⃣ SECURITY & BEST PRACTICES TEST"
 echo "────────────────────────────────────"
 
 # Test security configurations
-run_test "No ROOT webapp deployment" "[ ! -f /var/lib/tomcat10/webapps/ROOT.war ]" "pass"
+run_test "No ROOT webapp deployment" "[ ! -f /opt/tomcat9/webapps/ROOT.war ]" "pass"
 run_test "Guacamole config not world-readable" "[ \$(stat -c %a /etc/guacamole/guacamole.properties) != '644' ]" "pass"
 run_test "User mapping not world-readable" "[ \$(stat -c %a /etc/guacamole/user-mapping.xml) != '644' ]" "pass"
 
@@ -307,7 +307,7 @@ fi
 TOTAL_TESTS=$((TOTAL_TESTS + 1))
 echo -n "☕ Testing: Jakarta EE compatibility... "
 # Check if webapp started without javax.servlet errors
-JAKARTA_TEST=$(journalctl -u tomcat10 --no-pager -n 50 | grep -i "javax.servlet" || echo "")
+JAKARTA_TEST=$(journalctl -u tomcat9 --no-pager -n 50 | grep -i "javax.servlet" || echo "")
 if [ -z "$JAKARTA_TEST" ]; then
     echo -e "${GREEN}✅ PASS (no Jakarta EE compatibility issues)${NC}"
     TESTS_PASSED=$((TESTS_PASSED + 1))
@@ -415,7 +415,7 @@ TOTAL_TESTS=$((TOTAL_TESTS + 1))
 echo -n "🗄️ Testing: Database connectivity (if configured)... "
 if grep -q "mysql\|postgresql" /etc/guacamole/guacamole.properties 2>/dev/null; then
     # Database is configured, test it
-    DB_ERROR=$(journalctl -u tomcat10 --no-pager -n 50 | grep -i "database\|connection\|sql.*error" | head -1 || echo "")
+    DB_ERROR=$(journalctl -u tomcat9 --no-pager -n 50 | grep -i "database\|connection\|sql.*error" | head -1 || echo "")
     if [ -z "$DB_ERROR" ]; then
         echo -e "${GREEN}✅ PASS (no database errors in logs)${NC}"
         TESTS_PASSED=$((TESTS_PASSED + 1))
@@ -435,7 +435,7 @@ echo "────────────────────────�
 # Check for critical errors in logs
 TOTAL_TESTS=$((TOTAL_TESTS + 1))
 echo -n "📋 Testing: No critical errors in Tomcat logs... "
-CRITICAL_ERRORS=$(journalctl -u tomcat10 --no-pager -n 100 | grep -i "severe\|fatal\|critical" | wc -l)
+CRITICAL_ERRORS=$(journalctl -u tomcat9 --no-pager -n 100 | grep -i "severe\|fatal\|critical" | wc -l)
 if [ "$CRITICAL_ERRORS" -eq 0 ]; then
     echo -e "${GREEN}✅ PASS (no critical errors found)${NC}"
     TESTS_PASSED=$((TESTS_PASSED + 1))
@@ -526,9 +526,9 @@ if [ $TESTS_FAILED -eq 0 ]; then
     echo -e "${YELLOW}⚠️  SECURITY REMINDER: Change the default password immediately after first login!${NC}"
     echo ""
     echo "🔧 Quick Management Commands:"
-    echo "   • Restart services: sudo systemctl restart guacd tomcat10"
-    echo "   • View logs: sudo journalctl -u tomcat10 -f"
-    echo "   • Check status: sudo systemctl status guacd tomcat10"
+    echo "   • Restart services: sudo systemctl restart guacd tomcat9"
+    echo "   • View logs: sudo journalctl -u tomcat9 -f"
+    echo "   • Check status: sudo systemctl status guacd tomcat9"
     echo ""
     echo "🎯 Next Steps:"
     echo "   1. Log in and change the default password"
@@ -566,8 +566,8 @@ elif [ $PASS_RATE -ge 60 ]; then
     echo ""
     echo "🚨 Critical Actions Required:"
     echo "   1. Review ALL failed tests above"
-    echo "   2. Check service logs: sudo journalctl -u tomcat10 -u guacd -n 50"
-    echo "   3. Verify file permissions: ls -la /etc/guacamole/ /var/lib/tomcat10/webapps/"
+    echo "   2. Check service logs: sudo journalctl -u tomcat9 -u guacd -n 50"
+    echo "   3. Verify file permissions: ls -la /etc/guacamole/ /opt/tomcat9/webapps/"
     echo "   4. Test services manually: sudo systemctl restart guacd tomcat10"
     echo "   5. Consider re-running the installation script"
     echo ""

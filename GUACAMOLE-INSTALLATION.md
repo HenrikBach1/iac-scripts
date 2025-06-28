@@ -1,20 +1,113 @@
-# Guacamole Installation Testing Guide
+# Guacamole Installation & Testing Guide
 
 ## Overview
+
+This guide covers the complete Apache Guacamole installation process for Ubuntu 24.04, including the migration to Tomcat 9 for compatibility, and comprehensive post-install verification testing.
+
+## Installation Architecture
+
+### Current Configuration (Manual Tomcat 9 + Guacamole 1.5.5)
+- **Guacamole Version**: 1.5.5 (stable, production-ready)
+- **Tomcat Version**: 9.0.89 (manually installed from Apache)
+- **Java Version**: OpenJDK 17
+- **Installation Path**: `/opt/tomcat9/` (main installation)
+- **Compatibility Path**: `/var/lib/tomcat9/` (symlinked for compatibility)
+- **Deployment**: `/opt/tomcat9/webapps/guacamole.war`
+- **Access Path**: `http://server:8080/guacamole/`
+
+### Installation Directory Structure
+
+```
+/opt/tomcat9/           # Main Tomcat installation
+├── bin/                # Tomcat executables
+├── conf/               # Configuration files
+├── lib/                # Tomcat libraries
+├── logs/               # Log files
+├── temp/               # Temporary files
+├── webapps/            # Web applications (Guacamole deployed here)
+└── work/               # Working directory
+
+/var/lib/tomcat9/       # Compatibility symlinks
+├── webapps -> /opt/tomcat9/webapps
+├── logs -> /opt/tomcat9/logs
+├── work -> /opt/tomcat9/work
+├── temp -> /opt/tomcat9/temp
+└── conf -> /opt/tomcat9/conf
+
+/etc/default/tomcat9    # Environment configuration
+/etc/systemd/system/tomcat9.service  # Systemd service file
+```
+
+### Ubuntu 24.04 Tomcat 9 Installation Solution
+
+#### The Problem
+Ubuntu 24.04 does not provide Tomcat 9 packages in its default repositories. Only Tomcat 10 is available:
+
+```
+Package tomcat9 is not available, but is referred to by another package.
+E: Package 'tomcat9' has no installation candidate
+E: Unable to locate package tomcat9-admin
+E: Unable to locate package tomcat9-common
+E: Unable to locate package tomcat9-user
+```
+
+#### Servlet API Compatibility Issue
+- **Tomcat 10** uses Jakarta EE (namespace: `jakarta.servlet.*`)
+- **Guacamole 1.5.x and 1.6.0** use Java EE (namespace: `javax.servlet.*`)
+- **Tomcat 9** uses Java EE (namespace: `javax.servlet.*`) - COMPATIBLE
+
+#### Error That Was Occurring with Tomcat 10
+```
+java.lang.NoClassDefFoundError: javax/servlet/ServletContextListener
+```
+
+This error occurred because Guacamole was looking for `javax.servlet.ServletContextListener` but Tomcat 10 only provides `jakarta.servlet.ServletContextListener`.
+
+#### Our Solution: Manual Tomcat 9 Installation
+The installation script now downloads and installs Apache Tomcat 9.0.89 directly from Apache's official archive, providing:
+
+✅ **Full Compatibility**: Works with Guacamole 1.5.5 (Java EE)  
+✅ **Latest Security**: Uses Tomcat 9.0.89 with latest patches  
+✅ **Ubuntu 24.04 Ready**: No dependency on unavailable packages  
+✅ **Maintains Compatibility**: Same service names and paths as package installation  
+✅ **Self-Healing**: All auto-fix functions updated for new paths
+
+## Installation Process
+
+### 1. Run the Installation Script
+```bash
+sudo ./install-java-tomcat-and-guacamole-in-ubuntu-24.04.sh
+```
+
+The script automatically:
+- Downloads and installs Tomcat 9.0.89 manually from Apache's official archive
+- Creates custom systemd service with proper Java 17 environment
+- Sets up compatibility symlinks for standard Tomcat paths
+- Creates `tomcat` user with appropriate permissions
+- Deploys Guacamole 1.5.5 to `/opt/tomcat9/webapps/`
+- Sets up self-healing deployment with automatic problem resolution
+
+### 2. Verify Installation
+```bash
+sudo ./test-guacamole-installer.sh
+```
+
+## Testing & Verification
 
 The `test-guacamole-installer.sh` script provides comprehensive post-install verification for Apache Guacamole installations. It performs real-world testing to ensure your deployment is production-ready.
 
 ## Features
 
 ### ✅ **Comprehensive Test Coverage**
-- **System Requirements**: Java 17, packages, dependencies
-- **Service Status**: Tomcat 10, Guacd daemon, service enablement
+- **System Requirements**: Java 17, manual Tomcat 9 installation, dependencies
+- **Service Status**: Tomcat 9 (systemd), Guacd daemon, service enablement
 - **Port Binding**: Network connectivity, port conflicts
 - **File System**: WAR deployment, configuration files, permissions
 - **Configuration**: Properties validation, XML syntax, security settings
 - **HTTP Connectivity**: Local, loopback, and LAN access testing
 - **Real Functionality**: Login forms, API endpoints, static resources
 - **Integration**: Guacamole-to-Guacd communication, database connectivity
+- **Compatibility**: Java EE servlet API verification (manual Tomcat 9 specific)
 - **Log Analysis**: Error detection, critical issue identification
 - **Production Readiness**: Performance, security, resource usage
 
@@ -59,10 +152,11 @@ The script uses meaningful exit codes to indicate the overall status:
 
 ### 1️⃣ System Requirements Test
 - Java 17 installation and configuration
-- Package installations (Tomcat 10, Guacd, libraries)
+- Manual Tomcat 9 installation verification (9.0.89)
+- Required dependencies and libraries
 
 ### 2️⃣ Service Status Test
-- Service running status
+- Tomcat 9 service running status
 - Service enablement for boot startup
 
 ### 3️⃣ Port Binding Test
@@ -95,7 +189,8 @@ The script uses meaningful exit codes to indicate the overall status:
 
 ### 9️⃣ Version & Compatibility Test
 - Guacamole version detection
-- Jakarta EE compatibility verification
+- Java EE compatibility verification (Tomcat 9 + Guacamole 1.5.x)
+- Servlet API namespace validation (`javax.servlet.*` vs `jakarta.servlet.*`)
 
 ### 🔟 Performance & Resource Test
 - Response time measurement
@@ -172,17 +267,82 @@ The test script is designed to work alongside the main installation script:
 
 ## Troubleshooting
 
+### Common Issues and Solutions
+
+#### 1. Servlet API Compatibility Errors
+If you see errors like `NoClassDefFoundError: javax/servlet/ServletContextListener`:
+- **Cause**: Using Tomcat 10 (Jakarta EE) with Guacamole 1.5.x (Java EE)
+- **Solution**: Use Tomcat 9 (our script automatically handles this)
+
+#### 2. Service Status Issues
+If services fail to start:
+```bash
+# Check service status
+sudo systemctl status tomcat9 guacd
+
+# Check Java configuration
+cat /etc/default/tomcat9 | grep JAVA_HOME
+
+# Restart services in proper order
+sudo systemctl restart guacd
+sudo systemctl restart tomcat9
+```
+
+#### 3. Deployment Issues
+If WAR file doesn't deploy:
+```bash
+# Check deployment directory (main path)
+ls -la /opt/tomcat9/webapps/guacamole*
+
+# Check compatibility symlinks
+ls -la /var/lib/tomcat9/webapps/guacamole*
+
+# Check file permissions
+sudo chown tomcat:tomcat /opt/tomcat9/webapps/guacamole.war
+sudo chmod 644 /opt/tomcat9/webapps/guacamole.war
+
+# Check Tomcat logs
+sudo journalctl -u tomcat9 -n 50
+```
+
+### Verification Commands
+
+#### Check Current Configuration
+```bash
+# Verify Tomcat 9 is installed and running
+systemctl status tomcat9 guacd
+
+# Check Java configuration for Tomcat 9
+cat /etc/default/tomcat9 | grep JAVA_HOME
+
+# Verify deployment paths (both main and compatibility)
+ls -la /opt/tomcat9/webapps/guacamole*
+ls -la /var/lib/tomcat9/webapps/guacamole*
+
+# Test HTTP access
+curl -I http://localhost:8080/guacamole/
+```
+
+#### Check for Compatibility Issues
+```bash
+# Look for servlet API errors in logs
+sudo journalctl -u tomcat9 --no-pager -n 50 | grep -i "javax.servlet\|jakarta.servlet"
+
+# Verify Guacamole version
+curl -s http://localhost:8080/guacamole/ | grep -i "guacamole.*1\.5"
+```
+
 If tests fail, the script provides specific diagnostic commands:
 
 ```bash
 # Check service status
-sudo systemctl status tomcat10 guacd
+sudo systemctl status tomcat9 guacd
 
 # Review logs
-sudo journalctl -u tomcat10 -u guacd -n 50
+sudo journalctl -u tomcat9 -u guacd -n 50
 
 # Verify file permissions
-ls -la /etc/guacamole/ /var/lib/tomcat10/webapps/
+ls -la /etc/guacamole/ /opt/tomcat9/webapps/ /var/lib/tomcat9/webapps/
 
 # Check network ports
 sudo netstat -tlnp | grep -E ':(8080|4822)'
@@ -221,3 +381,55 @@ fi
 ```
 
 This comprehensive testing approach ensures that your Guacamole installation is not only installed correctly but also ready for real-world use.
+
+## Migration Notes & Future Considerations
+
+### Tomcat 9 vs Tomcat 10 Migration
+
+Our installation script has been specifically configured to use **Tomcat 9** instead of **Tomcat 10** to ensure compatibility with current Guacamole versions.
+
+#### Key Changes Made:
+- **Manual Installation**: Downloads and installs Apache Tomcat 9.0.89 directly from Apache's official archive
+- **Systemd Service**: Creates custom `tomcat9.service` file with proper Java 17 environment
+- **User Management**: Creates `tomcat` user automatically with appropriate permissions
+- **Directory Paths**: Main installation at `/opt/tomcat9/`, compatibility symlinks at `/var/lib/tomcat9/`
+- **Auto-Fix Functions**: All self-healing functions updated for new paths and manual installation
+
+#### Why This Migration Was Necessary:
+The servlet API namespace changed between Java EE and Jakarta EE:
+- **Java EE (Tomcat 9)**: `javax.servlet.*` - Compatible with Guacamole 1.5.x
+- **Jakarta EE (Tomcat 10+)**: `jakarta.servlet.*` - Not compatible with current Guacamole
+
+Additionally, Ubuntu 24.04 does not provide Tomcat 9 packages in its repositories, only Tomcat 10, which forced us to implement a manual installation approach.
+
+### Future Compatibility
+
+#### Expected Timeline:
+- **Current (2025)**: Manual Tomcat 9.0.89 + Guacamole 1.5.5 is the stable, production-ready combination
+- **Future**: Guacamole 1.7.x or later may eventually support Jakarta EE (Tomcat 10+)
+- **Ubuntu 24.04**: Only provides Tomcat 10 packages, requiring manual Tomcat 9 installation
+
+#### When to Consider Upgrading:
+- Wait for official Guacamole releases that support Jakarta EE
+- Monitor Apache Guacamole release notes for Jakarta EE compatibility
+- Test thoroughly in development before migrating production systems
+
+## Expected Results
+
+With the current configuration (Tomcat 9 + Guacamole 1.5.5), you should expect:
+
+✅ **Successful Installation**:
+- No servlet API compatibility errors
+- Clean webapp deployment to `/opt/tomcat9/webapps/guacamole/` (with symlink at `/var/lib/tomcat9/webapps/`)
+- Accessible at `http://server:8080/guacamole/`
+- Default credentials: `guacadmin/guacadmin`
+
+✅ **All Tests Pass**:
+- System requirements satisfied
+- Services running and enabled
+- HTTP endpoints responding correctly
+- Configuration files properly formatted
+- Security settings appropriate for production
+
+⚠️ **Important Security Note**:
+Always change the default password `guacadmin/guacadmin` immediately after first login!
