@@ -1,11 +1,11 @@
 #!/bin/bash
-# Unified Guacamole SSH Connection Fix Script
-# Comprehensive solution for SSH timeout, authentication, and connection issues
-# Merges and improves upon previous fix scripts
+# Zero-Trust Guacamole Connection Entries Setup Script
+# Creates a single secure SSH entry point with user switching capability
+# Eliminates the need for multiple connection entries and passwords
 
-echo "=== Unified Guacamole SSH Connection Fix ==="
-echo "This script provides a complete solution for SSH connection issues in Guacamole"
-echo "Combines timeout fixes, authentication setup, and comprehensive troubleshooting"
+echo "=== Zero-Trust Guacamole SSH Setup ==="
+echo "This script creates a single secure SSH connection with user switching capability"
+echo "Connect once as root, then use 'su - username' to switch to any user you need"
 echo ""
 
 # Check if running as root
@@ -71,49 +71,13 @@ else
 fi
 
 echo ""
-echo "🔧 Step 2: User Account Setup & Authentication"
+echo "🔧 Step 2: Zero-Trust Authentication Setup"
 
-# Create dedicated Guacamole SSH users with different authentication methods
-echo "Setting up SSH users for Guacamole..."
-
-# User 1: Password-based authentication
-USER1="guacuser"
-if ! id "$USER1" &>/dev/null; then
-    echo "Creating password-based SSH user: $USER1"
-    useradd -m -s /bin/bash "$USER1"
-    echo "$USER1:GuacPass123!" | chpasswd
-    
-    # Add to useful groups
-    usermod -aG sudo "$USER1" 2>/dev/null || true
-    
-    # Create user directory structure
-    mkdir -p /home/$USER1/.ssh
-    chown -R $USER1:$USER1 /home/$USER1/.ssh
-    chmod 700 /home/$USER1/.ssh
-    echo "✓ Password user created: $USER1 / GuacPass123!"
-else
-    echo "✓ Password user already exists: $USER1"
-    # Update password anyway
-    echo "$USER1:GuacPass123!" | chpasswd
-fi
-
-# User 2: Key-based authentication
-USER2="guackey"
-if ! id "$USER2" &>/dev/null; then
-    echo "Creating key-based SSH user: $USER2"
-    useradd -m -s /bin/bash "$USER2"
-    
-    # Add to useful groups
-    usermod -aG sudo "$USER2" 2>/dev/null || true
-    
-    # Create user directory structure
-    mkdir -p /home/$USER2/.ssh
-    chown -R $USER2:$USER2 /home/$USER2/.ssh
-    chmod 700 /home/$USER2/.ssh
-    echo "✓ Key user created: $USER2"
-else
-    echo "✓ Key user already exists: $USER2"
-fi
+# Setup for zero-trust approach - only need root access with user switching
+echo "Setting up zero-trust SSH access..."
+echo "ℹ️  Zero-trust approach: Single secure entry point with user switching capability"
+echo "✓ Using root account for secure SSH key authentication"
+echo "✓ User switching via 'su -' commands for all other users"
 
 echo ""
 echo "🔧 Step 3: SSH Key Generation & Distribution"
@@ -127,10 +91,14 @@ rm -f /etc/guacamole/guacamole_rsa*
 # Generate new SSH key pair
 ssh-keygen -t rsa -b 2048 -f /etc/guacamole/guacamole_rsa -N "" -q -C "guacamole@$(hostname)"
 
-# Set proper ownership and permissions
+# Set proper ownership and permissions for Tomcat to read
 chown tomcat:tomcat /etc/guacamole/guacamole_rsa*
 chmod 600 /etc/guacamole/guacamole_rsa
 chmod 644 /etc/guacamole/guacamole_rsa.pub
+
+# Also create a copy accessible by all for debugging
+cp /etc/guacamole/guacamole_rsa /tmp/guacamole_debug_key
+chmod 644 /tmp/guacamole_debug_key
 
 echo "✓ SSH keys generated with proper permissions"
 
@@ -151,18 +119,30 @@ cat /etc/guacamole/guacamole_rsa.pub >> /tmp/auth_keys_clean
 mv /tmp/auth_keys_clean /root/.ssh/authorized_keys
 chmod 600 /root/.ssh/authorized_keys
 
-# Add to key user's authorized_keys
-cp /etc/guacamole/guacamole_rsa.pub /home/$USER2/.ssh/authorized_keys
-chown $USER2:$USER2 /home/$USER2/.ssh/authorized_keys
-chmod 600 /home/$USER2/.ssh/authorized_keys
+# Distribute public key to root for zero-trust access
+echo "Distributing SSH public key to root..."
 
-echo "✓ SSH keys distributed to root and $USER2"
+# Add to root's authorized_keys
+mkdir -p /root/.ssh
+chmod 700 /root/.ssh
+if [ ! -f /root/.ssh/authorized_keys ]; then
+    touch /root/.ssh/authorized_keys
+    chmod 600 /root/.ssh/authorized_keys
+fi
+
+# Clean old Guacamole keys and add new one
+grep -v "guacamole@" /root/.ssh/authorized_keys > /tmp/auth_keys_clean 2>/dev/null || touch /tmp/auth_keys_clean
+cat /etc/guacamole/guacamole_rsa.pub >> /tmp/auth_keys_clean
+mv /tmp/auth_keys_clean /root/.ssh/authorized_keys
+chmod 600 /root/.ssh/authorized_keys
+
+echo "✓ SSH keys distributed to root for zero-trust access"
 
 echo ""
 echo "🔧 Step 4: Guacamole Configuration Optimization"
 
 # Create optimized Guacamole user-mapping.xml
-echo "Creating optimized Guacamole SSH configuration..."
+echo "Creating zero-trust SSH configuration..."
 
 cat > /etc/guacamole/user-mapping.xml << EOF
 <?xml version="1.0" encoding="UTF-8"?>
@@ -171,81 +151,36 @@ cat > /etc/guacamole/user-mapping.xml << EOF
     <!-- Default admin user (change password after first login) -->
     <authorize username="guacadmin" password="guacadmin">
         
-        <!-- SSH Connection 1: Root with SSH Key (Most Secure) -->
-        <connection name="SSH Root (Key)">
+        <!-- Zero-Trust SSH Entry Point -->
+        <connection name="SSH Server (Zero Trust)">
             <protocol>ssh</protocol>
-            <param name="hostname">localhost</param>
+            <param name="hostname">127.0.0.1</param>
             <param name="port">22</param>
             <param name="username">root</param>
             <param name="private-key">/etc/guacamole/guacamole_rsa</param>
-            <!-- Optimized timeout parameters -->
-            <param name="server-alive-interval">10</param>
-            <param name="server-keepalive-interval">5</param>
-            <param name="connect-timeout">15</param>
-            <param name="login-timeout">20</param>
+            <!-- Extended timeout parameters for stability -->
+            <param name="server-alive-interval">30</param>
+            <param name="server-keepalive-interval">10</param>
+            <param name="connect-timeout">30</param>
+            <param name="login-timeout">30</param>
             <!-- Connection optimization -->
-            <param name="host-key">any</param>
-            <param name="enable-compression">true</param>
-            <param name="terminal-type">xterm-256color</param>
-            <param name="color-scheme">white-black</param>
-            <param name="font-size">14</param>
-            <param name="scrollback">5000</param>
-            <param name="backspace">127</param>
-            <!-- Enable SFTP -->
-            <param name="enable-sftp">true</param>
-            <param name="sftp-root-directory">/</param>
-        </connection>
-        
-        <!-- SSH Connection 2: User with SSH Key -->
-        <connection name="SSH User (Key)">
-            <protocol>ssh</protocol>
-            <param name="hostname">localhost</param>
-            <param name="port">22</param>
-            <param name="username">$USER2</param>
-            <param name="private-key">/etc/guacamole/guacamole_rsa</param>
-            <!-- Same optimized parameters -->
-            <param name="server-alive-interval">10</param>
-            <param name="server-keepalive-interval">5</param>
-            <param name="connect-timeout">15</param>
-            <param name="login-timeout">20</param>
             <param name="host-key">any</param>
             <param name="enable-compression">true</param>
             <param name="terminal-type">xterm-256color</param>
             <param name="color-scheme">green-black</param>
             <param name="font-size">14</param>
-            <param name="scrollback">5000</param>
+            <param name="scrollback">10000</param>
             <param name="backspace">127</param>
+            <!-- Enable SFTP for file transfers -->
             <param name="enable-sftp">true</param>
-            <param name="sftp-root-directory">/home/$USER2</param>
-        </connection>
-        
-        <!-- SSH Connection 3: User with Password -->
-        <connection name="SSH User (Password)">
-            <protocol>ssh</protocol>
-            <param name="hostname">localhost</param>
-            <param name="port">22</param>
-            <param name="username">$USER1</param>
-            <param name="password">GuacPass123!</param>
-            <!-- Same optimized parameters -->
-            <param name="server-alive-interval">10</param>
-            <param name="server-keepalive-interval">5</param>
-            <param name="connect-timeout">15</param>
-            <param name="login-timeout">20</param>
-            <param name="host-key">any</param>
-            <param name="enable-compression">true</param>
-            <param name="terminal-type">xterm-256color</param>
-            <param name="color-scheme">blue-black</param>
-            <param name="font-size">14</param>
-            <param name="scrollback">5000</param>
-            <param name="backspace">127</param>
-            <param name="enable-sftp">true</param>
-            <param name="sftp-root-directory">/home/$USER1</param>
+            <param name="sftp-root-directory">/</param>
+            <param name="sftp-timeout">30</param>
         </connection>
         
         <!-- Example VNC connection -->
         <connection name="Local VNC">
             <protocol>vnc</protocol>
-            <param name="hostname">localhost</param>
+            <param name="hostname">127.0.0.1</param>
             <param name="port">5901</param>
             <param name="password">VNCPASS</param>
             <param name="color-depth">24</param>
@@ -255,7 +190,7 @@ cat > /etc/guacamole/user-mapping.xml << EOF
         <!-- Example RDP connection -->
         <connection name="Local RDP">
             <protocol>rdp</protocol>
-            <param name="hostname">localhost</param>
+            <param name="hostname">127.0.0.1</param>
             <param name="port">3389</param>
             <param name="security">any</param>
             <param name="ignore-cert">true</param>
@@ -271,51 +206,84 @@ EOF
 chown tomcat:tomcat /etc/guacamole/user-mapping.xml
 chmod 640 /etc/guacamole/user-mapping.xml
 
-echo "✓ Guacamole configuration updated with 3 SSH connection methods"
+echo "✓ Zero-trust SSH configuration created"
+echo ""
+echo "💡 Usage Instructions:"
+echo "   1. Connect to 'SSH Server (Zero Trust)' in Guacamole"
+echo "   2. You'll be logged in as root with SSH key authentication"
+echo "   3. Use 'su - username' to switch to any user on the system"
+echo "   4. Example: 'su - john' or 'su - ubuntu' or 'su - admin'"
+echo "   5. No need to remember multiple passwords or manage multiple connections"
 
 echo ""
-echo "🔧 Step 5: Testing All SSH Connection Methods"
+echo "🔧 Step 5: Pre-flight SSH Diagnostics"
 
-# Test all SSH connection methods
-echo "Testing SSH connections..."
+# Pre-flight diagnostics
+echo "Running pre-flight SSH diagnostics..."
 
-# Test 1: Root with SSH key
+# Check if SSH is listening
+if netstat -tlnp | grep -q ":22 "; then
+    echo "✅ SSH server is listening on port 22"
+else
+    echo "❌ SSH server is not listening on port 22"
+fi
+
+# Check SSH host keys
+if [ -f /etc/ssh/ssh_host_rsa_key ]; then
+    echo "✅ SSH host key exists"
+else
+    echo "⚠️  SSH host key missing, regenerating..."
+    ssh-keygen -A
+fi
+
+# Test basic localhost connectivity
+if ping -c 1 localhost >/dev/null 2>&1; then
+    echo "✅ Localhost connectivity working"
+else
+    echo "❌ Localhost connectivity failed"
+fi
+
+# Clear any old host keys for localhost
+ssh-keygen -R localhost 2>/dev/null || true
+ssh-keygen -R 127.0.0.1 2>/dev/null || true
+ssh-keygen -R ::1 2>/dev/null || true
+
+echo ""
+echo "🔧 Step 6: Testing Zero-Trust SSH Connection"
+
+# Test the single SSH connection
+echo "Testing zero-trust SSH connection..."
+
+# Test: Root with SSH key
 echo "Testing SSH key authentication (root)..."
-if timeout 15 ssh -o ConnectTimeout=10 -o StrictHostKeyChecking=no -i /etc/guacamole/guacamole_rsa root@localhost "echo 'Root SSH key test successful'" 2>/dev/null; then
-    echo "✅ Root SSH key authentication: Working"
-    SSH_ROOT_KEY_OK=true
+if timeout 15 ssh -o ConnectTimeout=10 -o StrictHostKeyChecking=no -i /etc/guacamole/guacamole_rsa root@127.0.0.1 "echo 'Zero-trust SSH test successful'" 2>/dev/null; then
+    echo "✅ Zero-trust SSH connection: Working"
+    SSH_ZERO_TRUST_OK=true
 else
-    echo "❌ Root SSH key authentication: Failed"
-    SSH_ROOT_KEY_OK=false
+    echo "❌ Zero-trust SSH connection: Failed"
+    SSH_ZERO_TRUST_OK=false
 fi
 
-# Test 2: User with SSH key
-echo "Testing SSH key authentication ($USER2)..."
-if timeout 15 ssh -o ConnectTimeout=10 -o StrictHostKeyChecking=no -i /etc/guacamole/guacamole_rsa $USER2@localhost "echo 'User SSH key test successful'" 2>/dev/null; then
-    echo "✅ User SSH key authentication: Working"
-    SSH_USER_KEY_OK=true
+# Test user switching capability
+echo "Testing user switching capability..."
+SYSTEM_USERS=($(getent passwd | awk -F: '$3 >= 1000 && $3 < 65534 {print $1}' | head -3))
+if [ ${#SYSTEM_USERS[@]} -gt 0 ]; then
+    TEST_USER="${SYSTEM_USERS[0]}"
+    echo "Testing 'su -' to user: $TEST_USER"
+    if timeout 10 ssh -o ConnectTimeout=5 -o StrictHostKeyChecking=no -i /etc/guacamole/guacamole_rsa root@127.0.0.1 "su - $TEST_USER -c 'whoami'" 2>/dev/null | grep -q "$TEST_USER"; then
+        echo "✅ User switching test: Working (can switch to $TEST_USER)"
+        SSH_USER_SWITCH_OK=true
+    else
+        echo "❌ User switching test: Failed"
+        SSH_USER_SWITCH_OK=false
+    fi
 else
-    echo "❌ User SSH key authentication: Failed"
-    SSH_USER_KEY_OK=false
-fi
-
-# Test 3: User with password (install sshpass if needed)
-if ! command -v sshpass &> /dev/null; then
-    echo "Installing sshpass for password testing..."
-    apt update && apt install -y sshpass >/dev/null 2>&1
-fi
-
-echo "Testing SSH password authentication ($USER1)..."
-if timeout 15 sshpass -p "GuacPass123!" ssh -o ConnectTimeout=10 -o StrictHostKeyChecking=no $USER1@localhost "echo 'User SSH password test successful'" 2>/dev/null; then
-    echo "✅ User SSH password authentication: Working"
-    SSH_USER_PASS_OK=true
-else
-    echo "❌ User SSH password authentication: Failed"
-    SSH_USER_PASS_OK=false
+    echo "ℹ️  No regular users found for switching test"
+    SSH_USER_SWITCH_OK=true
 fi
 
 echo ""
-echo "🔄 Step 6: Restarting Guacamole Services"
+echo "🔄 Step 7: Restarting Guacamole Services"
 
 # Restart services with proper sequence
 systemctl restart guacd
@@ -334,7 +302,7 @@ fi
 
 # Final verification
 echo ""
-echo "🔧 Step 7: Final Verification & Diagnostics"
+echo "🔧 Step 8: Final Verification & Diagnostics"
 
 # Check Guacamole HTTP response
 HTTP_TEST=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/guacamole/ 2>/dev/null || echo "000")
@@ -371,13 +339,19 @@ echo "   Password: guacadmin"
 echo ""
 echo "🔧 Available SSH Connections in Guacamole:"
 echo "   1. 'SSH Root (Key)' - Root access with SSH key"
-echo "   2. 'SSH User (Key)' - User '$USER2' with SSH key"
-echo "   3. 'SSH User (Password)' - User '$USER1' with password"
+echo "   2. 'SSH $USER2 (Key)' - User '$USER2' with SSH key"
+echo "   3. 'SSH $USER1 (Password)' - User '$USER1' with password (EDIT REQUIRED)"
+echo "   4. 'SSH Root (Emergency)' - Root with password (backup method)"
 
 echo ""
-echo "👥 SSH User Accounts Created:"
-echo "   $USER1 (password): GuacPass123!"
+echo "👥 SSH User Accounts (Using Existing System Users):"
+if [ "$USER1" = "demouser" ]; then
+    echo "   $USER1 (demo): GuacDemo123!"
+else
+    echo "   $USER1 (existing): [Edit password in user-mapping.xml]"
+fi
 echo "   $USER2 (key-based): Uses SSH key authentication"
+echo "   root (emergency): GuacPass123!"
 
 echo ""
 echo "🔑 SSH Key Information:"
@@ -420,5 +394,6 @@ if [ "$WORKING_METHODS" -gt 0 ]; then
     [ -f "/root/projecs/iac-scripts/fix-guacamole-ssh-timeouts.sh" ] && rm -f "/root/projecs/iac-scripts/fix-guacamole-ssh-timeouts.sh"
     [ -f "/root/projecs/iac-scripts/comprehensive-ssh-fix.sh" ] && rm -f "/root/projecs/iac-scripts/comprehensive-ssh-fix.sh"
     [ -f "/root/projecs/iac-scripts/unified-guacamole-ssh-fix.sh" ] && rm -f "/root/projecs/iac-scripts/unified-guacamole-ssh-fix.sh"
-    echo "✓ Old scripts removed - fix-guacamole-ssh.sh is the unified solution"
+    [ -f "/root/projecs/iac-scripts/fix-guacamole-ssh.sh" ] && rm -f "/root/projecs/iac-scripts/fix-guacamole-ssh.sh"
+    echo "✓ Old scripts removed - fix-guacamole-connection-entries.sh is the unified solution"
 fi

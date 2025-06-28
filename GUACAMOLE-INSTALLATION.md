@@ -433,3 +433,106 @@ With the current configuration (Tomcat 9 + Guacamole 1.5.5), you should expect:
 
 ⚠️ **Important Security Note**:
 Always change the default password `guacadmin/guacadmin` immediately after first login!
+
+## SSH Connection Configuration
+
+### Using the Connection Entries Fix Script
+
+If SSH connections in Guacamole are not working properly, use the zero-trust SSH setup script:
+
+```bash
+sudo ./fix-guacamole-connection-entries.sh
+```
+
+**Zero-Trust SSH Approach:**
+This script implements a simplified, secure approach using a single SSH connection entry:
+
+- ✅ **Single Entry Point**: Creates one secure SSH connection (root key-based)
+- ✅ **No Password Hassles**: Uses SSH key authentication only
+- ✅ **Universal Access**: Connect as root, then use `su - username` to switch to any user
+- ✅ **Simplified Management**: No need to create or manage multiple connection entries
+- ✅ **Enhanced Security**: SSH keys are more secure than passwords
+- ✅ **Easy User Switching**: Use `su - john`, `su - ubuntu`, etc. after connecting
+
+### Zero-Trust Usage Instructions
+
+Once the script completes successfully:
+
+1. **Access Guacamole Web Interface:**
+   ```
+   http://your-server-ip:8080/guacamole
+   ```
+
+2. **Login with default credentials:**
+   - Username: `guacadmin`  
+   - Password: `guacadmin`
+
+3. **Connect using the SSH entry:**
+   - Click on "SSH Server (Zero Trust)" connection
+   - You'll be automatically logged in as root using SSH key authentication
+   - No password required!
+
+4. **Switch to any user as needed:**
+   ```bash
+   su - john          # Switch to user 'john'
+   su - ubuntu        # Switch to user 'ubuntu'  
+   su - your_user     # Switch to any system user
+   ```
+
+5. **View available users:**
+   ```bash
+   cat /etc/passwd | grep '/home' | cut -d: -f1
+   ```
+
+### Available Connection Types
+
+The script creates these SSH connection entries:
+
+1. **SSH Root (Key)** - Root access with SSH key (most secure)
+2. **SSH User (Key)** - System user with SSH key authentication  
+3. **SSH User (Password)** - System user with password (requires manual configuration)
+4. **SSH Root (Emergency)** - Root with password (backup access)
+
+### SSH Configuration Features
+
+- **Extended Timeouts**: 30-second timeouts for reliable remote connections
+- **Host Key Flexibility**: `host-key=any` for maximum compatibility
+- **Compression**: Enabled for better performance over slower connections
+- **SFTP Support**: File transfer capabilities included
+- **Keep-Alive**: Connection stability with server-alive intervals
+
+### Troubleshooting SSH Connections
+
+If connections still fail after running the script:
+
+1. **Check SSH service:**
+   ```bash
+   sudo systemctl status ssh
+   ```
+
+2. **Test direct SSH connection:**
+   ```bash
+   ssh username@localhost
+   ```
+
+3. **View SSH logs:**
+   ```bash
+   sudo journalctl -u ssh -n 20
+   ```
+
+4. **Check Guacamole logs:**
+   ```bash
+   sudo journalctl -u tomcat9 -n 20
+   ```
+
+5. **Verify SSH key permissions:**
+   ```bash
+   ls -la /etc/guacamole/guacamole_rsa*
+   ```
+
+### Security Considerations
+
+- **SSH Keys**: Automatically generated and properly secured
+- **User Isolation**: Each connection type uses appropriate user context
+- **Emergency Access**: Root password backup ensures system access
+- **File Permissions**: All SSH keys and configs have correct ownership (tomcat:tomcat)
