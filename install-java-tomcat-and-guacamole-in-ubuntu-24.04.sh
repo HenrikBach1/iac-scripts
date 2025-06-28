@@ -683,6 +683,9 @@ chmod 640 /etc/guacamole/user-mapping.xml
 
 echo "Guacamole configuration completed with proper permissions."
 
+# Setup zero-trust SSH configuration for secure, user-friendly access
+setup_zero_trust_ssh
+
 # Start services with proper sequence and verification
 echo "Starting services..."
 
@@ -823,16 +826,18 @@ if [ "$DEPLOYMENT_SUCCESS" = true ]; then
     echo "   Stop services: systemctl stop tomcat9 guacd"
     echo "   Check public IP: curl -4 -s ifconfig.me"
     echo ""
-    echo "🔧 SSH Connection Troubleshooting:"
-    echo "   If SSH connections don't work, run the unified fix:"
-    echo "   1. ./fix-guacamole-connection-entries.sh (comprehensive solution)"
-    echo "   2. Uses existing system users instead of creating new ones"
-    echo "   3. Creates optimized SSH connection entries with proper timeouts"
-    echo "   4. Tests connections and provides detailed diagnostics"
-    echo "   5. Manual steps: Edit /etc/guacamole/user-mapping.xml"
-    echo "   6. Set correct passwords for existing users in connections"
-    echo "   7. Check SSH server: sudo systemctl status ssh"
-    echo "   8. Test direct SSH: ssh username@hostname"
+    echo "🔧 SSH Access Information:"
+    if [ "$SSH_ZERO_TRUST_SETUP" = true ]; then
+        echo "   ✅ Zero-Trust SSH: Configured and tested"
+        echo "   📡 Connection: 'SSH Server (Zero Trust)' - Root access with user switching"
+        echo "   🔑 Authentication: SSH key (automatic)"
+        echo "   👥 User Switching: Use 'su - username' after connecting"
+        echo "   💡 Examples: 'su - john', 'su - ubuntu', 'su - admin'"
+    else
+        echo "   ⚠️  Zero-Trust SSH: Configured (may need system reboot to activate)"
+        echo "   📡 Connection: 'SSH Server (Zero Trust)' available in Guacamole"
+        echo "   🔧 If SSH doesn't work, run: ./fix-guacamole-connection-entries.sh"
+    fi
     
 else
     echo -e "\n❌ \033[1;31mSelf-Healing Installation Failed\033[0m"

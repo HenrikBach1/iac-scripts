@@ -314,20 +314,17 @@ fi
 
 # Count working SSH methods
 WORKING_METHODS=0
-[ "$SSH_ROOT_KEY_OK" = true ] && ((WORKING_METHODS++))
-[ "$SSH_USER_KEY_OK" = true ] && ((WORKING_METHODS++))
-[ "$SSH_USER_PASS_OK" = true ] && ((WORKING_METHODS++))
+[ "$SSH_ZERO_TRUST_OK" = true ] && ((WORKING_METHODS++))
 
 echo ""
 echo "=========================================="
-echo "🎉 UNIFIED SSH FIX COMPLETED"
+echo "🎉 ZERO-TRUST SSH SETUP COMPLETED"
 echo "=========================================="
 echo ""
 echo "📊 Connection Test Results:"
-echo "  SSH Root (Key):      $([ "$SSH_ROOT_KEY_OK" = true ] && echo "✅ Working" || echo "❌ Failed")"
-echo "  SSH User (Key):      $([ "$SSH_USER_KEY_OK" = true ] && echo "✅ Working" || echo "❌ Failed")"  
-echo "  SSH User (Password): $([ "$SSH_USER_PASS_OK" = true ] && echo "✅ Working" || echo "❌ Failed")"
-echo "  Working Methods:     $WORKING_METHODS/3"
+echo "  Zero-Trust SSH:      $([ "$SSH_ZERO_TRUST_OK" = true ] && echo "✅ Working" || echo "❌ Failed")"
+echo "  User Switching:      $([ "$SSH_USER_SWITCH_OK" = true ] && echo "✅ Working" || echo "❌ Failed")"
+echo "  Working Methods:     $WORKING_METHODS/1"
 
 echo ""
 echo "🌐 Access Guacamole:"
@@ -337,21 +334,29 @@ echo "   Username: guacadmin"
 echo "   Password: guacadmin"
 
 echo ""
-echo "🔧 Available SSH Connections in Guacamole:"
-echo "   1. 'SSH Root (Key)' - Root access with SSH key"
-echo "   2. 'SSH $USER2 (Key)' - User '$USER2' with SSH key"
-echo "   3. 'SSH $USER1 (Password)' - User '$USER1' with password (EDIT REQUIRED)"
-echo "   4. 'SSH Root (Emergency)' - Root with password (backup method)"
+echo "🔧 Available Connection in Guacamole:"
+echo "   'SSH Server (Zero Trust)' - Secure root access with user switching capability"
 
 echo ""
-echo "👥 SSH User Accounts (Using Existing System Users):"
-if [ "$USER1" = "demouser" ]; then
-    echo "   $USER1 (demo): GuacDemo123!"
+echo "🔑 Zero-Trust Usage:"
+echo "   1. Connect to 'SSH Server (Zero Trust)'"
+echo "   2. Authenticate with SSH key (automatic)"
+echo "   3. Use 'su - <username>' to switch to any user"
+echo "   4. Examples:"
+echo "      • su - john      (switch to user john)"
+echo "      • su - ubuntu    (switch to user ubuntu)" 
+echo "      • su - admin     (switch to user admin)"
+echo "      • su -           (stay as root)"
+
+echo ""
+echo "👥 Available System Users for Switching:"
+if [ ${#SYSTEM_USERS[@]} -gt 0 ]; then
+    for user in "${SYSTEM_USERS[@]}"; do
+        echo "   • $user"
+    done
 else
-    echo "   $USER1 (existing): [Edit password in user-mapping.xml]"
+    echo "   • (Run 'cat /etc/passwd' to see all users)"
 fi
-echo "   $USER2 (key-based): Uses SSH key authentication"
-echo "   root (emergency): GuacPass123!"
 
 echo ""
 echo "🔑 SSH Key Information:"
@@ -365,20 +370,22 @@ echo "   Configuration backup: $BACKUP_DIR"
 
 echo ""
 if [ "$WORKING_METHODS" -gt 0 ]; then
-    echo "✅ SUCCESS: $WORKING_METHODS SSH method(s) are working!"
-    echo "   Use the working connection(s) in Guacamole"
+    echo "✅ SUCCESS: Zero-trust SSH connection is working!"
+    echo "   Connect via Guacamole and use 'su -' to switch users"
     
-    if [ "$WORKING_METHODS" -eq 3 ]; then
-        echo "🎉 PERFECT: All SSH methods are functioning correctly!"
+    if [ "$SSH_USER_SWITCH_OK" = true ]; then
+        echo "🎉 PERFECT: Zero-trust setup with user switching is fully functional!"
     fi
 else
-    echo "⚠️  WARNING: No SSH methods are working"
+    echo "⚠️  WARNING: Zero-trust SSH connection is not working"
     echo "   Manual troubleshooting required"
 fi
 
 echo ""
 echo "💡 Troubleshooting Commands:"
-echo "   • Test direct SSH: ssh $USER1@localhost"
+echo "   • Test direct SSH: ssh root@localhost -i /etc/guacamole/guacamole_rsa"
+echo "   • Check available users: cat /etc/passwd | grep -E ':[0-9]{4}:'"
+echo "   • Test user switching: su - username"
 echo "   • Check SSH logs: journalctl -u ssh -n 20"
 echo "   • Check Guacamole logs: journalctl -u tomcat9 -n 20"
 echo "   • SSH service status: systemctl status ssh"

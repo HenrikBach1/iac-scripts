@@ -4,7 +4,7 @@ This repository contains automation scripts for setting up and managing various 
 
 ## Apache Guacamole Installation
 
-The `install-java-tomcat-and-guacamole-in-ubuntu-24.04.sh` script provides a robust, self-healing installation of Apache Guacamole on Ubuntu 24.04.
+The `install-java-tomcat-and-guacamole-in-ubuntu-24.04.sh` script provides a robust, self-healing installation of Apache Guacamole on Ubuntu 24.04 with integrated zero-trust SSH access.
 
 ### Key Features:
 
@@ -12,23 +12,38 @@ The `install-java-tomcat-and-guacamole-in-ubuntu-24.04.sh` script provides a rob
 - **Self-Healing**: Automatically detects and fixes common deployment issues
 - **Java EE Compatible**: Uses Tomcat 9 to avoid Jakarta EE servlet API conflicts
 - **Secure Deployment**: Deploys as subdirectory webapp (`/guacamole/`) rather than ROOT
+- **Zero-Trust SSH**: Automatically configures secure SSH access with user switching
+- **SSH Key Authentication**: Password-less access using automatically generated SSH keys
 - **Comprehensive Testing**: Includes full verification script
 
 ### Quick Start:
 
 ```bash
-# Install Guacamole
+# Install Guacamole (includes automatic zero-trust SSH setup)
 sudo ./install-java-tomcat-and-guacamole-in-ubuntu-24.04.sh
 
 # Verify installation
 sudo ./test-guacamole-installer.sh
 ```
 
-### Access:
+### Access & SSH:
 - **URL**: `http://your-server:8080/guacamole/`
 - **Default Credentials**: `guacadmin/guacadmin` (change immediately!)
+- **SSH Access**: "SSH Server (Zero Trust)" connection (automatic SSH key auth)
+- **User Switching**: Use `su - username` to switch to any system user
 
 For detailed installation instructions, troubleshooting, and testing information, see [GUACAMOLE-INSTALLATION.md](GUACAMOLE-INSTALLATION.md).
+
+### SSH Troubleshooting (If Needed):
+
+If SSH connections don't work after installation, use the troubleshooting script:
+
+```bash
+# Manual SSH configuration/troubleshooting
+sudo ./fix-guacamole-connection-entries.sh
+```
+
+This script provides backup SSH configuration, advanced troubleshooting, and manual setup options.
 
 ## ROS2 Docker Container
 

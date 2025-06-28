@@ -436,9 +436,31 @@ Always change the default password `guacadmin/guacadmin` immediately after first
 
 ## SSH Connection Configuration
 
-### Using the Connection Entries Fix Script
+### Automatic Zero-Trust Setup (Integrated)
 
-If SSH connections in Guacamole are not working properly, use the zero-trust SSH setup script:
+**The installer now automatically configures zero-trust SSH access!** 
+
+As of the latest version, the main installer script automatically sets up a secure, zero-trust SSH configuration during installation. This means you get a fully functional SSH connection right out of the box.
+
+### What Gets Configured Automatically:
+
+- ✅ **Single SSH Entry**: "SSH Server (Zero Trust)" connection in Guacamole
+- ✅ **SSH Key Authentication**: Secure, password-less access using SSH keys  
+- ✅ **Root Access Point**: Connect as root, then switch to any user as needed
+- ✅ **User Switching Capability**: Use `su - username` to access any system user
+- ✅ **Optimized SSH Settings**: Extended timeouts and connection stability
+- ✅ **SFTP Support**: File transfer capabilities included
+
+### Using Zero-Trust SSH (Post-Installation):
+
+1. **Access Guacamole**: `http://your-server-ip:8080/guacamole`
+2. **Login**: Username `guacadmin`, Password `guacadmin`  
+3. **Connect**: Click "SSH Server (Zero Trust)"
+4. **Switch Users**: Use `su - username` as needed (e.g., `su - john`, `su - ubuntu`)
+
+### Manual Configuration (If Needed)
+
+If SSH connections don't work after installation, or you need to reconfigure SSH settings:
 
 ```bash
 sudo ./fix-guacamole-connection-entries.sh
@@ -484,14 +506,17 @@ Once the script completes successfully:
    cat /etc/passwd | grep '/home' | cut -d: -f1
    ```
 
-### Available Connection Types
+### Available Connection
 
-The script creates these SSH connection entries:
+The script creates one secure SSH connection entry:
 
-1. **SSH Root (Key)** - Root access with SSH key (most secure)
-2. **SSH User (Key)** - System user with SSH key authentication  
-3. **SSH User (Password)** - System user with password (requires manual configuration)
-4. **SSH Root (Emergency)** - Root with password (backup access)
+**SSH Server (Zero Trust)** - Secure root access with SSH key authentication and user switching capability
+
+This single connection provides:
+- Root-level SSH access using private key authentication
+- User switching via `su - username` commands
+- No password management required
+- Complete system access through one connection point
 
 ### SSH Configuration Features
 
@@ -501,18 +526,40 @@ The script creates these SSH connection entries:
 - **SFTP Support**: File transfer capabilities included
 - **Keep-Alive**: Connection stability with server-alive intervals
 
-### Troubleshooting SSH Connections
+### Troubleshooting Zero-Trust SSH Connections
 
-If connections still fail after running the script:
+If the zero-trust SSH connection fails after running the script:
 
 1. **Check SSH service:**
    ```bash
    sudo systemctl status ssh
    ```
 
-2. **Test direct SSH connection:**
+2. **Test direct SSH key authentication:**
    ```bash
-   ssh username@localhost
+   ssh root@localhost -i /etc/guacamole/guacamole_rsa
+   ```
+
+3. **Verify SSH key permissions:**
+   ```bash
+   ls -la /etc/guacamole/guacamole_rsa*
+   # Should show: -rw------- tomcat tomcat for private key
+   #              -rw-r--r-- tomcat tomcat for public key
+   ```
+
+4. **Check root authorized_keys:**
+   ```bash
+   cat /root/.ssh/authorized_keys | grep guacamole
+   ```
+
+5. **Test user switching:**
+   ```bash
+   ssh root@localhost -i /etc/guacamole/guacamole_rsa "su - your_username -c whoami"
+   ```
+
+6. **Verify Guacamole can read the private key:**
+   ```bash
+   sudo -u tomcat cat /etc/guacamole/guacamole_rsa >/dev/null && echo "OK" || echo "FAILED"
    ```
 
 3. **View SSH logs:**
