@@ -4,7 +4,42 @@
 # Eliminates the need for multiple connection entries and passwords
 
 echo "=== Zero-Trust Guacamole SSH Setup ==="
-echo "This script creates a single secure SSH connection with user switching capability"
+echo "This script creates a secho ""
+echo "🔧 Step 7: Ensuring Guacamole Compatibility"
+
+# Ensure fresh Guacamole deployment to prevent protocol violations
+echo "Checking Guacamole deployment integrity..."
+if journalctl -u guacd --since "5 minutes ago" --no-pager | grep -q "protocol violation"; then
+    echo "🔄 Protocol violation detected - redeploying Guacamole..."
+    systemctl stop tomcat9
+    rm -rf /opt/tomcat9/webapps/guacamole*
+    wget -q "https://downloads.apache.org/guacamole/1.5.5/binary/guacamole-1.5.5.war" -O /tmp/guacamole.war
+    cp /tmp/guacamole.war /opt/tomcat9/webapps/
+    chown tomcat:tomcat /opt/tomcat9/webapps/guacamole.war
+    echo "✓ Fresh Guacamole deployed"
+fi
+
+# Fix critical guacd version mismatch issue
+echo "Checking guacd version compatibility..."
+SYSTEM_GUACD="/usr/sbin/guacd"
+LOCAL_GUACD="/usr/local/sbin/guacd"
+
+if [ -f "$LOCAL_GUACD" ] && [ -f "$SYSTEM_GUACD" ]; then
+    echo "🔄 Multiple guacd versions detected - fixing version mismatch..."
+    systemctl stop guacd
+    
+    # Update systemd service to use correct guacd
+    sed -i 's|/usr/sbin/guacd|/usr/local/sbin/guacd|g' /usr/lib/systemd/system/guacd.service
+    systemctl daemon-reload
+    
+    # Ensure correct library path
+    echo '/usr/local/lib' > /etc/ld.so.conf.d/guacamole.conf
+    ldconfig
+    
+    echo "✓ guacd version mismatch fixed - using version 1.5.5"
+else
+    echo "✓ guacd version check passed"
+fiSH connection with user switching capability"
 echo "Connect once as root, then use 'su - username' to switch to any user you need"
 echo ""
 
@@ -88,8 +123,8 @@ echo "Setting up SSH keys for Guacamole..."
 # Remove old keys if they exist and regenerate
 rm -f /etc/guacamole/guacamole_rsa*
 
-# Generate new SSH key pair
-ssh-keygen -t rsa -b 2048 -f /etc/guacamole/guacamole_rsa -N "" -q -C "guacamole@$(hostname)"
+# Generate new SSH key pair in PEM format for better compatibility
+ssh-keygen -t rsa -b 2048 -f /etc/guacamole/guacamole_rsa -N "" -m PEM -q -C "guacamole@$(hostname)"
 
 # Set proper ownership and permissions for Tomcat to read
 chown tomcat:tomcat /etc/guacamole/guacamole_rsa*
@@ -283,7 +318,29 @@ else
 fi
 
 echo ""
-echo "🔄 Step 7: Restarting Guacamole Services"
+echo "� Step 7: Ensuring Guacamole Compatibility"
+
+# Ensure fresh Guacamole deployment to prevent protocol violations
+echo "Checking Guacamole deployment integrity..."
+if journalctl -u guacd --since "5 minutes ago" --no-pager | grep -q "protocol violation"; then
+    echo "🔄 Protocol violation detected - redeploying Guacamole..."
+    systemctl stop tomcat9
+    rm -rf /opt/tomcat9/webapps/guacamole*
+    wget -q "https://downloads.apache.org/guacamole/1.5.5/binary/guacamole-1.5.5.war" -O /tmp/guacamole.war
+    cp /tmp/guacamole.war /opt/tomcat9/webapps/
+    chown tomcat:tomcat /opt/tomcat9/webapps/guacamole.war
+    echo "✓ Fresh Guacamole deployed"
+fi
+
+# Configure Tomcat for IPv4 networking
+echo "Configuring Tomcat for optimal networking..."
+echo 'export JAVA_OPTS="$JAVA_OPTS -Djava.net.preferIPv4Stack=true -Djava.net.preferIPv6Addresses=false"' > /opt/tomcat9/bin/setenv.sh
+chown tomcat:tomcat /opt/tomcat9/bin/setenv.sh
+chmod +x /opt/tomcat9/bin/setenv.sh
+echo "✓ IPv4 networking configured"
+
+echo ""
+echo "�🔄 Step 8: Restarting Guacamole Services"
 
 # Restart services with proper sequence
 systemctl restart guacd
@@ -302,7 +359,7 @@ fi
 
 # Final verification
 echo ""
-echo "🔧 Step 8: Final Verification & Diagnostics"
+echo "🔧 Step 9: Final Verification & Diagnostics"
 
 # Check Guacamole HTTP response
 HTTP_TEST=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/guacamole/ 2>/dev/null || echo "000")

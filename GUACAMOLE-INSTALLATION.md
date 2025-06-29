@@ -577,9 +577,56 @@ If the zero-trust SSH connection fails after running the script:
    ls -la /etc/guacamole/guacamole_rsa*
    ```
 
-### Security Considerations
+### SSH Key Format Compatibility
 
-- **SSH Keys**: Automatically generated and properly secured
-- **User Isolation**: Each connection type uses appropriate user context
-- **Emergency Access**: Root password backup ensures system access
-- **File Permissions**: All SSH keys and configs have correct ownership (tomcat:tomcat)
+**Important**: Guacamole requires SSH private keys in **PEM format** (RSA format), not the newer OpenSSH format.
+
+#### Identifying SSH Key Format Issues
+
+If you see errors like "Unsupported private key file format" in Guacamole logs:
+
+```bash
+# Check guacd logs for key format errors
+journalctl -u guacd | grep -i "unsupported.*key"
+```
+
+#### SSH Key Format Requirements
+
+- ✅ **Correct format** (PEM/RSA): `-----BEGIN RSA PRIVATE KEY-----`
+- ❌ **Wrong format** (OpenSSH): `-----BEGIN OPENSSH PRIVATE KEY-----`
+
+#### Fixing SSH Key Format Issues
+
+1. **Check current key format:**
+   ```bash
+   head -1 /etc/guacamole/guacamole_rsa
+   ```
+
+2. **If wrong format, regenerate in PEM format:**
+   ```bash
+   # Backup current key
+   cp /etc/guacamole/guacamole_rsa /etc/guacamole/guacamole_rsa.backup
+   
+   # Generate new key in PEM format
+   ssh-keygen -t rsa -b 2048 -m PEM -f /etc/guacamole/guacamole_rsa -N "" -C "guacamole@$(hostname)"
+   
+   # Set correct permissions
+   chown tomcat:tomcat /etc/guacamole/guacamole_rsa*
+   chmod 600 /etc/guacamole/guacamole_rsa
+   chmod 644 /etc/guacamole/guacamole_rsa.pub
+   
+   # Add new public key to authorized_keys
+   cat /etc/guacamole/guacamole_rsa.pub >> /root/.ssh/authorized_keys
+   
+   # Restart services
+   systemctl restart guacd tomcat9
+   ```
+
+3. **Verify the fix:**
+   ```bash
+   # Test direct SSH
+   ssh -i /etc/guacamole/guacamole_rsa root@127.0.0.1 'echo "Key format test successful"'
+   
+   # Check guacd logs for successful key import
+   journalctl -u guacd --since "1 minute ago" | grep "Auth key successfully imported"
+   ```
