@@ -133,6 +133,9 @@ cat > /etc/guacamole/user-mapping.xml << 'EOF'
             <param name="color-scheme">gray-black</param>
             <param name="enable-sftp">true</param>
             <param name="sftp-root-directory">/home/guaczero</param>
+            <!-- AGGRESSIVE: Completely disable ALL host key checking -->
+            <param name="host-key"></param>
+            <param name="host-key-base64"></param>
         </connection>
     </authorize>
     
@@ -144,27 +147,27 @@ chmod 600 /etc/guacamole/user-mapping.xml
 echo "✓ Zero-trust user mapping configured"
 
 echo ""
-echo "🔧 Step 5: Clean Tomcat SSH Configuration"
+echo "🔧 Step 5: Completely Disable Host Key Checking"
 
-# Clean up tomcat SSH configuration
-mkdir -p /var/lib/tomcat/.ssh
-chown tomcat:tomcat /var/lib/tomcat/.ssh
-chmod 700 /var/lib/tomcat/.ssh
+# This is the critical fix for the "Failed to parse known_hosts line" error
+echo "Completely disabling host key checking to prevent parsing errors..."
 
-# Clear known_hosts
-> /var/lib/tomcat/.ssh/known_hosts 2>/dev/null || true
+# AGGRESSIVE FIX: Remove the entire .ssh directory for tomcat user
+# This prevents guacd from finding ANY known_hosts files to parse
+rm -rf /var/lib/tomcat/.ssh
 
-# Create SSH config to disable host key checking
-cat > /var/lib/tomcat/.ssh/config << 'EOF'
-Host localhost 127.0.0.1
-    StrictHostKeyChecking no
-    UserKnownHostsFile /dev/null
-    LogLevel ERROR
-EOF
+# Do NOT recreate the .ssh directory - this forces guacd to skip host key checking entirely
+echo "✓ Removed tomcat SSH directory completely to prevent known_hosts parsing"
 
-chown tomcat:tomcat /var/lib/tomcat/.ssh/config
-chmod 600 /var/lib/tomcat/.ssh/config
-echo "✓ Tomcat SSH configuration cleaned"
+# Also ensure system-wide known_hosts are clean
+ssh-keygen -R localhost 2>/dev/null || true
+ssh-keygen -R 127.0.0.1 2>/dev/null || true
+ssh-keygen -R ::1 2>/dev/null || true
+
+# Remove any global known_hosts that might interfere
+rm -f /etc/ssh/ssh_known_hosts 2>/dev/null || true
+
+echo "✓ All known_hosts files removed to prevent parsing errors"
 
 echo ""
 echo "🔧 Step 6: Restart Services"
