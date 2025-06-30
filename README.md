@@ -1,4 +1,21 @@
-# Infrastructure as Code Scripts
+# Infras### Key Features:
+
+- **Production-Ready*### Zero-Trust Security Model:
+- 🔒 **Dedicated User**: `guaczero` user for secure shell access
+- 🔑 **SSH Key Only**: Traditional RSA PEM format keys for maximum compatibility  
+- 🖥️ **VNC Desktop**: XFCE4 desktop with D-Bus support for GUI applications
+- 🛡️ **Single Shell**: Clean, direct access without privilege switching requirements
+- 🚫 **Root Disabled**: Root SSH login completely disabled
+- 📝 **Minimal Attack Surface**: Single secure connection pointloys Guacamole 1.5.5 with Tomcat 9 for optimal compatibility
+- **Self-Healing**: Automatically detects and fixes common deployment issues
+- **Java EE Compatible**: Uses Tomcat 9 to avoid Jakarta EE servlet API conflicts
+- **Secure Deployment**: Deploys as subdirectory webapp (`/guacamole/`) rather than ROOT
+- **Zero-Trust SSH**: Automatically creates `guaczero` user with minimal privileges
+- **VNC Desktop**: XFCE4 desktop environment with D-Bus integration for `guaczero` user
+- **SSH Key Authentication**: Traditional RSA PEM format SSH keys (libssh2 compatible)
+- **Single Secure Shell**: Direct guaczero user access without sudo switching
+- **Comprehensive Testing**: Includes full verification script
+- **Advanced Troubleshooting**: SSH key format debugging tools included Code Scripts
 
 This repository contains automation scripts for setting up and managing various development and production environments.
 
@@ -31,7 +48,8 @@ sudo ./test-guacamole-installer.sh
 ### Access & Zero-Trust SSH:
 - **URL**: `http://your-server:8080/guacamole/`
 - **Default Credentials**: `guacadmin/guacadmin` (change immediately!)
-- **Zero-Trust SSH**: "Zero-Trust SSH (guaczero)" connection (automatic SSH key auth)
+- **Zero-Trust SSH**: "SSH Server (Zero Trust)" connection (automatic SSH key auth)
+- **VNC Desktop**: "VNC Desktop (guaczero)" connection (password: `guacpass123`)
 - **Single Shell Access**: Direct access to guaczero user environment
 
 ### Zero-Trust Security Model:

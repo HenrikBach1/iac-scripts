@@ -2,9 +2,9 @@
 #file=install-java-tomcat-and-guacamole-in-ubuntu-24.04-self-healing.sh
 
 # Apache Guacamole Installation Script for Ubuntu 24.04
-# Version: 2.3 (Self-Healing & Java EE Compatible)
+# Version: 2.4 (Self-Healing & VNC Desktop Support)
 # Updated: Uses stable Guacamole 1.5.5 with Tomcat 9 (Java EE support)
-# Description: Automates installation of Guacamole 1.5.5 with Tomcat 9, secure subdirectory deployment
+# Description: Automates installation of Guacamole 1.5.5 with Tomcat 9, secure subdirectory deployment, VNC desktop
 
 # Ensure script is run as root
 if [ "$(id -u)" -ne 0 ]; then
@@ -27,6 +27,7 @@ echo "=== Guacamole ${GUAC_VERSION} Installation ==="
 echo "✓ Using Tomcat 9 (Java EE) with stable Guacamole ${GUAC_VERSION}"
 echo "✓ Secure subdirectory deployment: /guacamole/"
 echo "✓ Self-healing installation with automatic problem resolution"
+echo "✓ VNC Desktop support with XFCE4 and D-Bus integration"
 echo ""
 
 # Utility function to get public IP
@@ -703,7 +704,9 @@ apt-get install -y \
     firefox \
     thunar \
     gnome-icon-theme \
-    fonts-dejavu >/dev/null 2>&1
+    fonts-dejavu \
+    dbus-x11 \
+    at-spi2-core >/dev/null 2>&1
 
 echo "✓ VNC server and XFCE desktop installed"
 
@@ -721,8 +724,23 @@ sudo -u guaczero chmod 600 /home/guaczero/.vnc/passwd
 # Create VNC startup script for XFCE
 cat > /home/guaczero/.vnc/xstartup << 'EOFVNC'
 #!/bin/bash
-xrdb $HOME/.Xresources
-startxfce4 &
+# VNC startup script for XFCE4 with D-Bus support
+
+# Load X resources
+xrdb $HOME/.Xresources 2>/dev/null
+
+# Start D-Bus session if not already running
+if [ -z "$DBUS_SESSION_BUS_ADDRESS" ]; then
+    eval $(dbus-launch --sh-syntax --exit-with-session)
+    export DBUS_SESSION_BUS_ADDRESS
+fi
+
+# Set up environment
+export XDG_CURRENT_DESKTOP=XFCE
+export XDG_SESSION_DESKTOP=xfce
+
+# Start XFCE4 desktop
+exec startxfce4
 EOFVNC
 
 chown guaczero:guaczero /home/guaczero/.vnc/xstartup
@@ -994,9 +1012,10 @@ if [ "$DEPLOYMENT_SUCCESS" = true ]; then
     echo "   Extensions: /etc/guacamole/extensions/"
     echo ""
     echo "🔧 Management Commands:"
-    echo "   Restart services: systemctl restart guacd tomcat9"
+    echo "   Restart services: systemctl restart guacd tomcat9 vncserver@1"
     echo "   View logs: journalctl -u tomcat9 -f"
-    echo "   Stop services: systemctl stop tomcat9 guacd"
+    echo "   Stop services: systemctl stop tomcat9 guacd vncserver@1"
+    echo "   VNC status: systemctl status vncserver@1"
     echo "   Check public IP: curl -4 -s ifconfig.me"
     echo ""
     echo "🔧 SSH Access Information:"

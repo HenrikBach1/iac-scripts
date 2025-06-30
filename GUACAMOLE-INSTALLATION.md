@@ -8,6 +8,7 @@ This guide covers the complete Apache Guacamole installation process for Ubuntu 
 - ✅ **Tomcat 9 Manual Installation** - Solves Ubuntu 24.04 package availability issues
 - ✅ **Java EE Compatibility** - Avoids Jakarta EE servlet API conflicts  
 - ✅ **Zero-Trust SSH Setup** - Automated secure SSH key authentication
+- ✅ **VNC Desktop Environment** - XFCE4 desktop with D-Bus integration for GUI applications
 - ✅ **SSH Key Format Fix** - Traditional RSA PEM format solution for libssh2 compatibility
 - ✅ **Comprehensive Testing** - Production-ready verification scripts
 - ✅ **Advanced Troubleshooting** - Complete diagnostic and repair tools
@@ -660,3 +661,165 @@ ssh-keygen -y -f /etc/guacamole/guaczero_rsa > /etc/guacamole/guaczero_rsa.pub
 The issue was specifically with libssh2's handling of different private key formats. While OpenSSL 3.x defaults to PKCS#8 format for new key generation, libssh2 1.11.0 (as used by guacd) has better compatibility with the traditional RSA PEM format. The `-traditional` flag in OpenSSL forces the output to use the older RSA format that libssh2 can reliably parse.
 
 This is a compatibility bridge between modern OpenSSL defaults and legacy SSH library expectations in the Guacamole/guacd stack.
+
+## VNC Desktop Configuration
+
+### Automatic VNC Desktop Setup (Integrated)
+
+**The installer now automatically configures VNC desktop access!**
+
+The main installer script automatically sets up a complete VNC desktop environment with XFCE4 during installation. This provides GUI access to the `guaczero` user through Guacamole's web interface.
+
+### What Gets Configured Automatically:
+
+- ✅ **VNC Server**: TightVNC server configured for display :1 (port 5901)
+- ✅ **Desktop Environment**: XFCE4 with essential applications (Firefox, file manager)
+- ✅ **D-Bus Integration**: Proper D-Bus session management for GUI applications
+- ✅ **Systemd Service**: Auto-start VNC server on boot (`vncserver@1.service`)
+- ✅ **Guacamole Connection**: Pre-configured "VNC Desktop (guaczero)" entry
+- ✅ **Security**: VNC only accessible via localhost (127.0.0.1)
+
+### VNC Desktop Features:
+
+- **Desktop Environment**: XFCE4 with modern UI
+- **Applications**: Firefox browser, Thunar file manager, terminal
+- **Resolution**: 1024x768 (configurable in user-mapping.xml)
+- **Color Depth**: 24-bit true color
+- **Audio Support**: Enabled for multimedia applications  
+- **File Sharing**: SharedDrive mapped to `/home/guaczero/Desktop`
+- **Accessibility**: Full keyboard and mouse support
+
+### Using VNC Desktop (Post-Installation):
+
+1. **Access Guacamole**: `http://your-server-ip:8080/guacamole`
+2. **Login**: Username `guacadmin`, Password `guacadmin`
+3. **Connect**: Click "VNC Desktop (guaczero)"
+4. **Desktop Ready**: XFCE4 desktop loads without D-Bus errors
+
+### VNC Configuration Details
+
+The installer creates the following VNC configuration:
+
+**VNC Connection Entry**: "VNC Desktop (guaczero)"
+- **Protocol**: VNC
+- **Host**: 127.0.0.1 (localhost only for security)
+- **Port**: 5901 (VNC display :1)
+- **Password**: guacpass123
+- **Resolution**: 1024x768
+- **Features**: Audio, file sharing, local cursor
+
+**VNC Service Configuration**:
+- **Service**: `vncserver@1.service`
+- **User**: guaczero (no sudo privileges)
+- **Display**: :1 (port 5901)
+- **Startup**: Automatic with system boot
+- **Desktop**: XFCE4 with D-Bus support
+
+### VNC Management Commands
+
+```bash
+# Check VNC service status
+systemctl status vncserver@1.service
+
+# Restart VNC service  
+systemctl restart vncserver@1.service
+
+# Stop VNC service
+systemctl stop vncserver@1.service
+
+# Start VNC service
+systemctl start vncserver@1.service
+
+# View VNC service logs
+journalctl -u vncserver@1.service -f
+```
+
+### VNC Desktop Troubleshooting
+
+#### Common VNC Issues & Solutions
+
+**Issue 1: VNC Connection Refused**
+```bash
+# Check if VNC service is running
+systemctl status vncserver@1.service
+
+# Check VNC port binding
+netstat -tlnp | grep 5901
+
+# Restart VNC service
+systemctl restart vncserver@1.service
+```
+
+**Issue 2: D-Bus Errors in Desktop**
+```bash
+# Verify D-Bus packages are installed
+dpkg -l | grep -E "(dbus-x11|at-spi2-core)"
+
+# Check VNC startup script
+cat /home/guaczero/.vnc/xstartup
+
+# Should include proper D-Bus initialization
+```
+
+**Issue 3: Desktop Applications Won't Start**
+```bash
+# Verify XFCE4 installation
+dpkg -l | grep xfce4
+
+# Check desktop environment variables
+sudo -u guaczero env | grep -E "(XDG|DESKTOP)"
+
+# Restart VNC with clean session
+systemctl restart vncserver@1.service
+```
+
+#### VNC Diagnostic Commands
+
+1. **Check VNC process and configuration:**
+   ```bash
+   # Check VNC processes
+   ps aux | grep vnc
+   
+   # Check VNC configuration files
+   ls -la /home/guaczero/.vnc/
+   
+   # Verify VNC password file
+   ls -la /home/guaczero/.vnc/passwd
+   ```
+
+2. **Test VNC connectivity:**
+   ```bash
+   # Check VNC port locally
+   telnet 127.0.0.1 5901
+   
+   # Check from Guacamole perspective
+   sudo -u tomcat telnet 127.0.0.1 5901
+   ```
+
+3. **Check desktop environment:**
+   ```bash
+   # Verify XFCE4 installation
+   which startxfce4
+   
+   # Check D-Bus packages
+   dpkg -l | grep -E "(dbus|at-spi)"
+   ```
+
+### VNC Security Considerations
+
+- **Local Access Only**: VNC server binds to 127.0.0.1 (localhost)
+- **Password Protected**: VNC requires password authentication
+- **User Isolation**: VNC runs as `guaczero` user with no sudo privileges
+- **Guacamole Gateway**: All access goes through Guacamole's web interface
+- **No Direct VNC**: External VNC clients cannot connect directly
+
+### VNC Desktop Applications
+
+The VNC desktop comes pre-installed with:
+- **Firefox**: Web browser for internet access
+- **Thunar**: File manager for file operations
+- **Terminal Emulator**: Command line access within the desktop
+- **XFCE Settings**: Desktop configuration tools
+- **Text Editor**: Basic text editing capabilities
+
+Additional applications can be installed by the system administrator if needed.
