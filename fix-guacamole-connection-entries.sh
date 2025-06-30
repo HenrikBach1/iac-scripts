@@ -1,11 +1,19 @@
 #!/bin/bash
-# Zero-Trust Guacamole Connection Troubleshooting Script
-# Provides a single, secure SSH shell using the guaczero user with key-based authentication only
-# Eliminates password-based authentication entirely for maximum security
+# Guacamole Connection Troubleshooting Script
+# Provides both password and key-based SSH authentication for the guaczero user
+# Includes fallback password authentication for reliable connections
 
-echo "=== Zero-Trust Guacamole SSH Troubleshooting ==="
-echo "This script provides a single, secure SSH shell using the guaczero user"
-echo "Pure key-based authentication - no passwords, no sudo switching required"
+echo "=== Guacamole SSH Connection Troubleshooting ==="
+echo "This script provides both passworecho "🌐 Connection Options:"
+echo "   • 'SSH Password (guaczero)': Reliable fallback method"
+echo "   • 'SSH Key (guaczero)': Testing libssh2 compatibility"
+echo "   • Both use guaczero user with appropriate authentication"
+echo ""
+echo "💡 Usage:"
+echo "   1. Try 'SSH Password (guaczero)' first (most reliable)"
+echo "   2. Test 'SSH Key (guaczero)' to verify key-based auth"
+echo "   3. Both provide direct shell access as guaczero user"based SSH authentication"
+echo "Password fallback ensures reliable connections while testing key-based auth"
 echo ""
 
 # Check if running as root
@@ -42,22 +50,40 @@ else
     echo "✓ guaczero user already exists"
 fi
 
+# Set password for guaczero user (matches user-mapping.xml)
+echo "Setting password for guaczero user..."
+echo "guaczero:guacpass123" | chpasswd
+echo "✓ Password set for guaczero user"
+
 echo ""
 echo "🔧 Step 2: SSH Server Configuration & Security"
 
 # Backup current SSH config
 cp /etc/ssh/sshd_config "$BACKUP_DIR/sshd_config.backup"
 
-# Configure SSH server for optimal Guacamole compatibility with zero-trust
-echo "Configuring SSH server for zero-trust security..."
+# Configure SSH server for optimal Guacamole compatibility
+echo "Configuring SSH server for Guacamole compatibility..."
 
-# Update SSH configuration to allow only guaczero with key-based auth
+# Clean up the SSH config by removing duplicate entries and creating a clean version
+sed -i '/# Zero-Trust SSH Configuration for Guacamole/,/^$/d' /etc/ssh/sshd_config
+sed -i '/^AllowUsers guaczero$/d' /etc/ssh/sshd_config
+sed -i '/^PasswordAuthentication /d' /etc/ssh/sshd_config
+sed -i '/^PermitRootLogin /d' /etc/ssh/sshd_config
+sed -i '/^PubkeyAuthentication /d' /etc/ssh/sshd_config
+sed -i '/^AuthorizedKeysFile /d' /etc/ssh/sshd_config
+sed -i '/^ClientAliveInterval /d' /etc/ssh/sshd_config
+sed -i '/^ClientAliveCountMax /d' /etc/ssh/sshd_config
+sed -i '/^TCPKeepAlive /d' /etc/ssh/sshd_config
+sed -i '/^LoginGraceTime /d' /etc/ssh/sshd_config
+sed -i '/^MaxAuthTries /d' /etc/ssh/sshd_config
+
+# Add clean SSH configuration
 cat >> /etc/ssh/sshd_config << 'EOF'
 
-# Zero-Trust SSH Configuration for Guacamole
-# Only allow guaczero user with key-based authentication
+# Guacamole SSH Configuration
+# Allow guaczero user with both password and key authentication
 AllowUsers guaczero
-PasswordAuthentication no
+PasswordAuthentication yes
 PermitRootLogin no
 PubkeyAuthentication yes
 AuthorizedKeysFile .ssh/authorized_keys
@@ -70,7 +96,7 @@ LoginGraceTime 60
 MaxAuthTries 3
 EOF
 
-echo "✓ Zero-trust SSH server configuration applied"
+echo "✓ SSH server configuration applied (supports both password and key auth)"
 
 # Restart SSH service
 echo "🔄 Restarting SSH service..."
@@ -148,14 +174,32 @@ echo "✓ SSH key authentication configured for guaczero"
 echo ""
 echo "🔧 Step 4: Update Guacamole User Mapping"
 
-# Update user mapping to use guaczero
+# Update user mapping to include both password and key-based entries
 cat > /etc/guacamole/user-mapping.xml << 'EOF'
 <?xml version="1.0" encoding="UTF-8"?>
 <user-mapping>
     
     <!-- Default admin user (change password after first login) -->
     <authorize username="guacadmin" password="guacadmin">
-        <connection name="Zero-Trust SSH (guaczero)">
+        <!-- Password-based SSH connection (reliable fallback) -->
+        <connection name="SSH Password (guaczero)">
+            <protocol>ssh</protocol>
+            <param name="hostname">localhost</param>
+            <param name="port">22</param>
+            <param name="username">guaczero</param>
+            <param name="password">guacpass123</param>
+            <param name="font-name">monospace</param>
+            <param name="font-size">12</param>
+            <param name="color-scheme">gray-black</param>
+            <param name="enable-sftp">true</param>
+            <param name="sftp-root-directory">/home/guaczero</param>
+            <!-- AGGRESSIVE: Completely disable ALL host key checking -->
+            <param name="host-key"></param>
+            <param name="host-key-base64"></param>
+        </connection>
+        
+        <!-- Key-based SSH connection (testing libssh2 compatibility) -->
+        <connection name="SSH Key (guaczero)">
             <protocol>ssh</protocol>
             <param name="hostname">localhost</param>
             <param name="port">22</param>
@@ -211,18 +255,31 @@ systemctl restart tomcat9
 sleep 10
 
 echo ""
-echo "🔍 Step 7: Testing SSH Connection"
+echo "🔍 Step 7: Testing SSH Connections"
 
 WORKING_METHODS=0
 
-echo "Testing zero-trust SSH connection..."
+echo "Testing password-based SSH connection..."
+# Test password connection using sshpass
+if command -v sshpass >/dev/null 2>&1; then
+    if sshpass -p "guacpass123" ssh -o ConnectTimeout=10 -o StrictHostKeyChecking=no guaczero@localhost 'echo "Password connection successful"' 2>/dev/null; then
+        echo "✅ Password-based SSH connection: WORKING"
+        WORKING_METHODS=$((WORKING_METHODS + 1))
+    else
+        echo "❌ Password-based SSH connection: FAILED"
+    fi
+else
+    echo "⚠️  sshpass not installed - cannot test password connection automatically"
+    echo "   Install with: apt-get install -y sshpass"
+fi
 
+echo "Testing key-based SSH connection..."
 # Test SSH connection as tomcat user (how Guacamole connects)
-if sudo -u tomcat ssh -o ConnectTimeout=10 -o StrictHostKeyChecking=no -i /etc/guacamole/guaczero_rsa guaczero@localhost 'echo "Connection successful"' 2>/dev/null; then
-    echo "✅ Zero-trust SSH connection: WORKING"
+if sudo -u tomcat ssh -o ConnectTimeout=10 -o StrictHostKeyChecking=no -i /etc/guacamole/guaczero_rsa guaczero@localhost 'echo "Key connection successful"' 2>/dev/null; then
+    echo "✅ Key-based SSH connection: WORKING"
     WORKING_METHODS=$((WORKING_METHODS + 1))
 else
-    echo "❌ Zero-trust SSH connection: FAILED"
+    echo "❌ Key-based SSH connection: FAILED"
 fi
 
 echo ""
@@ -238,15 +295,13 @@ done
 
 echo ""
 echo "======================================"
-echo "🎯 ZERO-TRUST SSH FIX SUMMARY"
+echo "🎯 GUACAMOLE SSH FIX SUMMARY"
 echo "======================================"
 echo ""
-echo "🔐 Security Model:"
-echo "   • Pure key-based authentication (no passwords)"
-echo "   • Traditional RSA PEM format (libssh2 compatible)"
-echo "   • Dedicated guaczero user for Guacamole"
-echo "   • Root login disabled"
-echo "   • SSH restricted to guaczero user only"
+echo "🔐 Authentication Methods:"
+echo "   • Password authentication: guaczero / guacpass123"
+echo "   • Key-based authentication: Traditional RSA PEM format"
+echo "   • Both methods available as fallback options"
 echo ""
 echo "🔑 Key Format Solution:"
 echo "   • Format: Traditional RSA PEM (-----BEGIN RSA PRIVATE KEY-----)"
@@ -269,12 +324,16 @@ echo "📁 Backup: $BACKUP_DIR"
 
 if [ "$WORKING_METHODS" -gt 0 ]; then
     echo ""
-    echo "✅ SUCCESS: Zero-trust SSH with traditional RSA PEM key format is working!"
-    echo "🚀 Test your connection in Guacamole now."
-    echo "🔍 The persistent 'Unsupported private key file format' error is resolved!"
+    echo "✅ SUCCESS: At least one SSH authentication method is working!"
+    echo "🚀 Test your connections in Guacamole now."
+    if [ "$WORKING_METHODS" -eq 2 ]; then
+        echo "🎉 Both password and key-based authentication are working!"
+    elif [ "$WORKING_METHODS" -eq 1 ]; then
+        echo "⚠️  Only one authentication method is working - use the working one as fallback"
+    fi
 else
     echo ""
-    echo "⚠️  WARNING: SSH connection test failed"
+    echo "⚠️  WARNING: Both SSH connection tests failed"
     echo "💡 Check logs: journalctl -u ssh -n 20"
     echo "🔧 Monitor: ./monitor-guacamole-ssh-connection.sh"
 fi
