@@ -98,15 +98,12 @@ rm -rf /var/lib/tomcat/.ssh/
 # Remove any existing SSH keys for guaczero
 rm -f /etc/guacamole/guaczero_rsa*
 
-# SOLUTION: Generate Traditional RSA PEM format keys for libssh2 compatibility
+# SOLUTION: Generate Traditional RSA PEM format keys using ssh-keygen for maximum libssh2 compatibility
 echo "Generating SSH keys in traditional RSA PEM format (libssh2 compatible)..."
 
-# The issue was that OpenSSL 3.x generates keys in PKCS#8 format by default
-# We need to explicitly use the -traditional flag to get the old RSA format
-openssl genrsa -out /tmp/temp_rsa_key.pem 2048 2>/dev/null
-openssl rsa -in /tmp/temp_rsa_key.pem -out /etc/guacamole/guaczero_rsa -traditional 2>/dev/null
-rm -f /tmp/temp_rsa_key.pem
-ssh-keygen -y -f /etc/guacamole/guaczero_rsa > /etc/guacamole/guaczero_rsa.pub
+# Use ssh-keygen with explicit PEM format for best libssh2 compatibility
+# This method is more reliable than OpenSSL conversion for guacd/libssh2
+ssh-keygen -t rsa -b 2048 -m PEM -f /etc/guacamole/guaczero_rsa -N "" -C "guaczero@localhost" >/dev/null 2>&1
 
 # Verify the key format - should be traditional RSA PEM format
 if head -1 /etc/guacamole/guaczero_rsa | grep -q "BEGIN RSA PRIVATE KEY"; then
@@ -253,7 +250,7 @@ echo "   • SSH restricted to guaczero user only"
 echo ""
 echo "🔑 Key Format Solution:"
 echo "   • Format: Traditional RSA PEM (-----BEGIN RSA PRIVATE KEY-----)"
-echo "   • Generated with: OpenSSL with -traditional flag"
+echo "   • Generated with: ssh-keygen -m PEM (most compatible)"
 echo "   • Compatible with: libssh2 1.11.0 used by guacd"
 echo "   • Validation: $(openssl rsa -in /etc/guacamole/guaczero_rsa -check -noout 2>/dev/null || echo 'Failed')"
 echo ""
