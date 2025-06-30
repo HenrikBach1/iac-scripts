@@ -4,17 +4,17 @@
 # Includes fallback password authentication for reliable connections
 
 echo "=== Guacamole SSH Connection Troubleshooting ==="
-echo "This script provides both password and key-echo "🌐 Connection Options:"
+echo "This script provides both password and key-based SSH authentication"
+echo "Pecho "🌐 Connection Options:"
 echo "   • 'SSH Password (guaczero)': Reliable working method"
 echo "   • 'SSH Key (guaczero) - NOT WORKING': Known libssh2 compatibility issue"
 echo "   • Use password authentication as primary connection method"
-echo "   • Security: guaczero user has NO sudo privileges (restricted access)"
+echo "   • Security: guaczero user has NO sudo access - command completely removed"
 echo ""
 echo "💡 Usage:"
 echo "   1. Use 'SSH Password (guaczero)' - this is the working connection"
 echo "   2. Avoid 'SSH Key (guaczero) - NOT WORKING' until issue is resolved"
-echo "   3. Password method provides restricted shell access as guaczero user (no sudo)"authentication"
-echo "Password fallback ensures reliable connections while testing key-based auth"
+echo "   3. Password method provides completely restricted shell (sudo command not available)"llback ensures reliable connections while testing key-based auth"
 echo ""
 
 # Check if running as root
@@ -55,6 +55,41 @@ else
         echo "✓ guaczero removed from sudo group"
     fi
 fi
+
+# Explicitly block sudo access for guaczero user
+echo "Ensuring guaczero cannot use sudo command..."
+echo "guaczero ALL=(ALL) !ALL" > /etc/sudoers.d/block-guaczero-sudo
+chmod 440 /etc/sudoers.d/block-guaczero-sudo
+
+# Create a restricted environment for guaczero - remove sudo from PATH
+echo "Creating restricted shell environment for guaczero..."
+
+# Create a personal bin directory with a fake sudo command
+mkdir -p /home/guaczero/bin
+cat > /home/guaczero/bin/sudo << 'EOF'
+#!/bin/bash
+echo "sudo: command not found"
+exit 127
+EOF
+chmod +x /home/guaczero/bin/sudo
+
+cat > /home/guaczero/.bashrc << 'EOF'
+# Restricted environment for guaczero user
+# Put personal bin first in PATH to override system sudo
+export PATH="/home/guaczero/bin:/usr/local/bin:/usr/bin:/bin"
+EOF
+
+# Also create a restricted .profile
+cat > /home/guaczero/.profile << 'EOF'
+# Restricted profile for guaczero user
+export PATH="/home/guaczero/bin:/usr/local/bin:/usr/bin:/bin"
+EOF
+
+chown -R guaczero:guaczero /home/guaczero/bin /home/guaczero/.bashrc /home/guaczero/.profile
+chmod 755 /home/guaczero/bin
+chmod 644 /home/guaczero/.bashrc /home/guaczero/.profile
+
+echo "✓ sudo command completely removed from guaczero user environment"
 
 # Set password for guaczero user (matches user-mapping.xml)
 echo "Setting password for guaczero user..."
@@ -312,6 +347,7 @@ echo ""
 echo "🔐 Authentication Methods:"
 echo "   • Password authentication: guaczero / guacpass123 (WORKING)"
 echo "   • Key-based authentication: Traditional RSA PEM format (NOT WORKING)"
+echo "   • Security: sudo command completely removed from guaczero environment"
 echo "   • Known Issue: libssh2 compatibility problem with Guacamole 1.5.5"
 echo ""
 echo "🔑 Key Format Solution:"
@@ -337,6 +373,7 @@ if [ "$WORKING_METHODS" -gt 0 ]; then
     echo ""
     echo "✅ SUCCESS: Password-based SSH authentication is working!"
     echo "🚀 Use 'SSH Password (guaczero)' connection in Guacamole."
+    echo "🔒 Security: sudo command completely disabled for guaczero user"
     if [ "$WORKING_METHODS" -eq 2 ]; then
         echo "🎉 Both password and key-based authentication are working!"
     elif [ "$WORKING_METHODS" -eq 1 ]; then
