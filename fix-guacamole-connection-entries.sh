@@ -91,11 +91,19 @@ echo "🔧 Step 3: SSH Key Management"
 
 # Ensure SSH keys exist for guaczero
 if [ ! -f /etc/guacamole/guaczero_rsa ]; then
-    echo "Generating SSH keys for guaczero..."
-    ssh-keygen -t rsa -b 4096 -f /etc/guacamole/guaczero_rsa -N "" -C "guaczero@guacamole"
-    echo "✓ SSH keys generated"
+    echo "Generating SSH keys for guaczero in PEM format..."
+    ssh-keygen -t rsa -b 4096 -m PEM -f /etc/guacamole/guaczero_rsa -N "" -C "guaczero@guacamole"
+    echo "✓ SSH keys generated in PEM format"
 else
-    echo "✓ SSH keys already exist"
+    # Check if existing key is in PEM format
+    if head -1 /etc/guacamole/guaczero_rsa | grep -q "BEGIN OPENSSH"; then
+        echo "Converting existing SSH key to PEM format..."
+        cp /etc/guacamole/guaczero_rsa /etc/guacamole/guaczero_rsa.backup
+        ssh-keygen -p -m PEM -f /etc/guacamole/guaczero_rsa -N ""
+        echo "✓ SSH key converted to PEM format"
+    else
+        echo "✓ SSH keys already exist in PEM format"
+    fi
 fi
 
 # Set correct permissions on SSH keys
