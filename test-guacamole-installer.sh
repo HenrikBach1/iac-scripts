@@ -234,6 +234,9 @@ run_test "Guacamole config has guacd settings" "grep -q 'guacd-hostname: localho
 run_test "Guacamole config has auth provider" "grep -q 'auth-provider:' /etc/guacamole/guacamole.properties" "pass"
 run_test "User mapping has admin user" "grep -q 'username=\"guacadmin\"' /etc/guacamole/user-mapping.xml" "pass"
 run_test "User mapping is valid XML" "xmllint --noout /etc/guacamole/user-mapping.xml" "pass"
+run_test "SSH key exists for guaczero" "[ -f /etc/guacamole/guaczero_rsa ]" "pass"
+run_test "SSH key is in PEM format" "head -1 /etc/guacamole/guaczero_rsa | grep -q 'BEGIN RSA PRIVATE KEY'" "pass"
+run_test "SSH key has correct permissions" "[ \$(stat -c %a /etc/guacamole/guaczero_rsa) = '600' ]" "pass"
 
 echo ""
 echo "6️⃣ HTTP CONNECTIVITY TEST"

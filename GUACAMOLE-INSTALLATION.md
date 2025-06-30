@@ -529,74 +529,104 @@ This single connection provides:
 
 ### Troubleshooting Zero-Trust SSH Connections
 
-If the zero-trust SSH connection fails after running the script:
+If the zero-trust SSH connection fails after running the script, follow these diagnostic steps:
 
-1. **Check SSH service:**
-   ```bash
-   sudo systemctl status ssh
-   ```
+#### Common SSH Connection Issues & Solutions
 
-2. **Test direct SSH key authentication:**
-   ```bash
-   ssh root@localhost -i /etc/guacamole/guacamole_rsa
-   ```
-
-3. **Verify SSH key permissions:**
-   ```bash
-   ls -la /etc/guacamole/guacamole_rsa*
-   # Should show: -rw------- tomcat tomcat for private key
-   #              -rw-r--r-- tomcat tomcat for public key
-   ```
-
-4. **Check root authorized_keys:**
-   ```bash
-   cat /root/.ssh/authorized_keys | grep guacamole
-   ```
-
-5. **Test user switching:**
-   ```bash
-   ssh root@localhost -i /etc/guacamole/guacamole_rsa "su - your_username -c whoami"
-   ```
-
-6. **Verify Guacamole can read the private key:**
-   ```bash
-   sudo -u tomcat cat /etc/guacamole/guacamole_rsa >/dev/null && echo "OK" || echo "FAILED"
-   ```
-
-3. **View SSH logs:**
-   ```bash
-   sudo journalctl -u ssh -n 20
-   ```
-
-4. **Check Guacamole logs:**
-   ```bash
-   sudo journalctl -u tomcat9 -n 20
-   ```
-
-5. **Verify SSH key permissions:**
-   ```bash
-   ls -la /etc/guacamole/guacamole_rsa*
-   ```
-
-### SSH Key Format Compatibility
-
-**Important**: Guacamole requires SSH private keys in **PEM format** (RSA format), not the newer OpenSSH format.
-
-#### Identifying SSH Key Format Issues
-
-If you see errors like "Unsupported private key file format" in Guacamole logs:
-
+**Issue 1: "Failed to parse known_hosts line"**
 ```bash
-# Check guacd logs for key format errors
-journalctl -u guacd | grep -i "unsupported.*key"
+# Symptoms: Connection fails immediately after key import
+# Solution: Remove all known_hosts files
+sudo rm -rf /var/lib/tomcat/.ssh
+sudo rm -f /etc/ssh/ssh_known_hosts
 ```
 
-#### SSH Key Format Requirements
+**Issue 2: "Unsupported private key file format"**
+```bash
+# Check current key format
+head -1 /etc/guacamole/guaczero_rsa
 
-- ✅ **Correct format** (PEM/RSA): `-----BEGIN RSA PRIVATE KEY-----`
-- ❌ **Wrong format** (OpenSSH): `-----BEGIN OPENSSH PRIVATE KEY-----`
+# Should show: -----BEGIN RSA PRIVATE KEY-----
+# If it shows: -----BEGIN OPENSSH PRIVATE KEY----- then regenerate:
+sudo rm -f /etc/guacamole/guaczero_rsa*
+ssh-keygen -t rsa -b 2048 -m PEM -f /etc/guacamole/guaczero_rsa -N "" -C "guaczero@guacamole"
+sudo chown tomcat:tomcat /etc/guacamole/guaczero_rsa*
+```
 
-#### Fixing SSH Key Format Issues
+**Issue 3: "Public key authentication failed"**
+```bash
+# Verify SSH key authentication
+sudo -u tomcat ssh -o ConnectTimeout=5 -i /etc/guacamole/guaczero_rsa guaczero@localhost whoami
+```
+
+#### Zero-Trust SSH Diagnostic Commands
+
+1. **Check SSH service and configuration:**
+   ```bash
+   sudo systemctl status ssh
+   grep -E "AllowUsers|PermitRootLogin|PasswordAuthentication" /etc/ssh/sshd_config
+   ```
+
+2. **Verify guaczero user and keys:**
+   ```bash
+   id guaczero
+   ls -la /etc/guacamole/guaczero_rsa*
+   ls -la /home/guaczero/.ssh/
+   ```
+
+3. **Test SSH key authentication:**
+   ```bash
+   sudo -u tomcat ssh -o ConnectTimeout=10 -o StrictHostKeyChecking=no -i /etc/guacamole/guaczero_rsa guaczero@localhost 'echo "Connection successful"'
+   ```
+
+4. **Check Guacamole connection logs:**
+   ```bash
+   # Real-time monitoring
+   ./monitor-guacamole-ssh-connection.sh
+   
+   # View recent logs
+   sudo journalctl -u guacd -n 50 | grep -E "Connection|Auth|Error"
+   ```
+
+5. **Verify user-mapping.xml configuration:**
+   ```bash
+   sudo cat /etc/guacamole/user-mapping.xml
+   # Should contain "Zero-Trust SSH (guaczero)" connection
+   ```
+
+#### Critical SSH Key Format Requirements
+
+**Guacamole SSH Key Compatibility:**
+
+- ✅ **Required format** (PEM/RSA): `-----BEGIN RSA PRIVATE KEY-----`
+- ❌ **Incompatible format** (OpenSSH): `-----BEGIN OPENSSH PRIVATE KEY-----`
+
+**Key Generation Commands:**
+```bash
+# Correct (PEM format for Guacamole)
+ssh-keygen -t rsa -b 2048 -m PEM -f /etc/guacamole/guaczero_rsa -N ""
+
+# Wrong (OpenSSH format - incompatible)
+ssh-keygen -t rsa -b 2048 -f /etc/guacamole/guaczero_rsa -N ""
+```
+
+#### Complete SSH Fix Procedure
+
+If SSH connections still fail after trying the above:
+
+```bash
+# Run the comprehensive fix script
+sudo ./fix-guacamole-connection-entries.sh
+
+# This script will:
+# 1. Ensure guaczero user exists
+# 2. Configure zero-trust SSH server settings
+# 3. Force regenerate SSH keys in PEM format
+# 4. Update Guacamole user-mapping.xml
+# 5. Remove all known_hosts files
+# 6. Restart all services
+# 7. Test the connection
+```
 
 1. **Check current key format:**
    ```bash

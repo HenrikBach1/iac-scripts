@@ -50,6 +50,19 @@ sudo ./test-guacamole-installer.sh
 sudo ./fix-guacamole-connection-entries.sh
 ```
 
+### Common SSH Issues:
+
+**SSH Connection Fails?**
+- **Known hosts error**: `sudo rm -rf /var/lib/tomcat/.ssh`
+- **Key format error**: SSH key must be PEM format (`-----BEGIN RSA PRIVATE KEY-----`)
+- **Run diagnostic**: `sudo ./fix-guacamole-connection-entries.sh`
+
+**Expected Connection Flow:**
+1. ✅ SSH key imported successfully
+2. ✅ No known host keys provided (normal)
+3. ✅ SSH connection established
+4. ✅ Shell prompt appears as `guaczero` user
+
 For detailed installation instructions, troubleshooting, and testing information, see [GUACAMOLE-INSTALLATION.md](GUACAMOLE-INSTALLATION.md).
 
 ## ROS2 Docker Container
