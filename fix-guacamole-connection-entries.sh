@@ -4,15 +4,16 @@
 # Includes fallback password authentication for reliable connections
 
 echo "=== Guacamole SSH Connection Troubleshooting ==="
-echo "This script provides both password echo "🌐 Connection Options:"
+echo "This script provides both password and key-echo "🌐 Connection Options:"
 echo "   • 'SSH Password (guaczero)': Reliable working method"
 echo "   • 'SSH Key (guaczero) - NOT WORKING': Known libssh2 compatibility issue"
 echo "   • Use password authentication as primary connection method"
+echo "   • Security: guaczero user has NO sudo privileges (restricted access)"
 echo ""
 echo "💡 Usage:"
 echo "   1. Use 'SSH Password (guaczero)' - this is the working connection"
 echo "   2. Avoid 'SSH Key (guaczero) - NOT WORKING' until issue is resolved"
-echo "   3. Password method provides reliable shell access as guaczero user"sed SSH authentication"
+echo "   3. Password method provides restricted shell access as guaczero user (no sudo)"authentication"
 echo "Password fallback ensures reliable connections while testing key-based auth"
 echo ""
 
@@ -44,10 +45,15 @@ echo "🔧 Step 1: Ensure guaczero User Exists"
 if ! id guaczero &>/dev/null; then
     echo "Creating guaczero user..."
     useradd -m -s /bin/bash guaczero
-    usermod -aG sudo guaczero
-    echo "✓ guaczero user created"
+    echo "✓ guaczero user created (no sudo privileges - security best practice)"
 else
     echo "✓ guaczero user already exists"
+    # Remove from sudo group if it was previously added
+    if groups guaczero | grep -q sudo; then
+        echo "Removing guaczero from sudo group for security..."
+        gpasswd -d guaczero sudo
+        echo "✓ guaczero removed from sudo group"
+    fi
 fi
 
 # Set password for guaczero user (matches user-mapping.xml)
