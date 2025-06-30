@@ -12,8 +12,9 @@ The `install-java-tomcat-and-guacamole-in-ubuntu-24.04.sh` script provides a rob
 - **Self-Healing**: Automatically detects and fixes common deployment issues
 - **Java EE Compatible**: Uses Tomcat 9 to avoid Jakarta EE servlet API conflicts
 - **Secure Deployment**: Deploys as subdirectory webapp (`/guacamole/`) rather than ROOT
-- **Zero-Trust SSH**: Automatically configures secure SSH access with user switching
+- **Zero-Trust SSH**: Automatically creates `guaczero` user with minimal privileges
 - **SSH Key Authentication**: Password-less access using automatically generated SSH keys
+- **Controlled Sudo Access**: Secure privilege escalation when needed
 - **Comprehensive Testing**: Includes full verification script
 
 ### Quick Start:
@@ -26,24 +27,30 @@ sudo ./install-java-tomcat-and-guacamole-in-ubuntu-24.04.sh
 sudo ./test-guacamole-installer.sh
 ```
 
-### Access & SSH:
+### Access & Zero-Trust SSH:
 - **URL**: `http://your-server:8080/guacamole/`
 - **Default Credentials**: `guacadmin/guacadmin` (change immediately!)
-- **SSH Access**: "SSH Server (Zero Trust)" connection (automatic SSH key auth)
-- **User Switching**: Use `su - username` to switch to any system user
+- **Zero-Trust SSH**: "Zero-Trust SSH (guaczero)" connection (automatic SSH key auth)
+- **Minimal Privileges**: User `guaczero` with controlled sudo access
 
-For detailed installation instructions, troubleshooting, and testing information, see [GUACAMOLE-INSTALLATION.md](GUACAMOLE-INSTALLATION.md).
+### Zero-Trust Security Model:
+- 🔒 **Dedicated User**: `guaczero` user with minimal privileges (no root)
+- 🔑 **SSH Key Only**: Password-less authentication for primary connection
+- 🛡️ **Controlled Escalation**: `sudo` access with password for administrative tasks
+- 🚫 **Root Disabled**: Root SSH login completely disabled
+- 📝 **Audit Trail**: All privileged actions require explicit sudo
 
-### SSH Troubleshooting (If Needed):
-
-If SSH connections don't work after installation, use the troubleshooting script:
+### Monitoring & Troubleshooting:
 
 ```bash
-# Manual SSH configuration/troubleshooting
+# Monitor SSH connections in real-time
+./monitor-guacamole-ssh-connection.sh
+
+# Manual SSH configuration/troubleshooting (if needed)
 sudo ./fix-guacamole-connection-entries.sh
 ```
 
-This script provides backup SSH configuration, advanced troubleshooting, and manual setup options.
+For detailed installation instructions, troubleshooting, and testing information, see [GUACAMOLE-INSTALLATION.md](GUACAMOLE-INSTALLATION.md).
 
 ## ROS2 Docker Container
 

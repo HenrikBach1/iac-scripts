@@ -444,10 +444,10 @@ As of the latest version, the main installer script automatically sets up a secu
 
 ### What Gets Configured Automatically:
 
-- ✅ **Single SSH Entry**: "SSH Server (Zero Trust)" connection in Guacamole
+- ✅ **Single SSH Entry**: "Zero-Trust SSH (guaczero)" connection in Guacamole
 - ✅ **SSH Key Authentication**: Secure, password-less access using SSH keys  
-- ✅ **Root Access Point**: Connect as root, then switch to any user as needed
-- ✅ **User Switching Capability**: Use `su - username` to access any system user
+- ✅ **Dedicated Security User**: Connect as guaczero, then switch to any user as needed
+- ✅ **User Switching Capability**: Use `sudo su - username` to access any system user
 - ✅ **Optimized SSH Settings**: Extended timeouts and connection stability
 - ✅ **SFTP Support**: File transfer capabilities included
 
@@ -455,8 +455,8 @@ As of the latest version, the main installer script automatically sets up a secu
 
 1. **Access Guacamole**: `http://your-server-ip:8080/guacamole`
 2. **Login**: Username `guacadmin`, Password `guacadmin`  
-3. **Connect**: Click "SSH Server (Zero Trust)"
-4. **Switch Users**: Use `su - username` as needed (e.g., `su - john`, `su - ubuntu`)
+3. **Connect**: Click "Zero-Trust SSH (guaczero)"
+4. **Switch Users**: Use `sudo su - username` as needed (e.g., `sudo su - john`, `sudo su - ubuntu`)
 
 ### Manual Configuration (If Needed)
 
@@ -469,12 +469,12 @@ sudo ./fix-guacamole-connection-entries.sh
 **Zero-Trust SSH Approach:**
 This script implements a simplified, secure approach using a single SSH connection entry:
 
-- ✅ **Single Entry Point**: Creates one secure SSH connection (root key-based)
+- ✅ **Single Entry Point**: Creates one secure SSH connection (guaczero key-based)
 - ✅ **No Password Hassles**: Uses SSH key authentication only
-- ✅ **Universal Access**: Connect as root, then use `su - username` to switch to any user
+- ✅ **Universal Access**: Connect as guaczero user, then use `sudo su - username` to switch to any user
 - ✅ **Simplified Management**: No need to create or manage multiple connection entries
-- ✅ **Enhanced Security**: SSH keys are more secure than passwords
-- ✅ **Easy User Switching**: Use `su - john`, `su - ubuntu`, etc. after connecting
+- ✅ **Enhanced Security**: SSH keys are more secure than passwords, root login disabled
+- ✅ **Easy User Switching**: Use `sudo su - john`, `sudo su - ubuntu`, etc. after connecting
 
 ### Zero-Trust Usage Instructions
 
@@ -490,15 +490,16 @@ Once the script completes successfully:
    - Password: `guacadmin`
 
 3. **Connect using the SSH entry:**
-   - Click on "SSH Server (Zero Trust)" connection
-   - You'll be automatically logged in as root using SSH key authentication
+   - Click on "Zero-Trust SSH (guaczero)" connection
+   - You'll be automatically logged in as guaczero user using SSH key authentication
    - No password required!
 
 4. **Switch to any user as needed:**
    ```bash
-   su - john          # Switch to user 'john'
-   su - ubuntu        # Switch to user 'ubuntu'  
-   su - your_user     # Switch to any system user
+   sudo su - john          # Switch to user 'john'
+   sudo su - ubuntu        # Switch to user 'ubuntu'  
+   sudo su - your_user     # Switch to any system user
+   sudo su - root          # Switch to root if needed
    ```
 
 5. **View available users:**
@@ -510,12 +511,12 @@ Once the script completes successfully:
 
 The script creates one secure SSH connection entry:
 
-**SSH Server (Zero Trust)** - Secure root access with SSH key authentication and user switching capability
+**Zero-Trust SSH (guaczero)** - Secure guaczero user access with SSH key authentication and user switching capability
 
 This single connection provides:
-- Root-level SSH access using private key authentication
-- User switching via `su - username` commands
-- No password management required
+- Dedicated security user SSH access using private key authentication
+- User switching via `sudo su - username` commands
+- No password management required for SSH authentication
 - Complete system access through one connection point
 
 ### SSH Configuration Features

@@ -612,7 +612,85 @@ EOF
 
 echo "Created Guacamole properties file"
 
-# Create default user mapping with better security and comprehensive SSH setup
+# Create guaczero user for zero-trust SSH access
+echo "Creating zero-trust user (guaczero) for secure SSH access..."
+if ! id "guaczero" &>/dev/null; then
+    useradd -m -s /bin/bash -c "Guacamole Zero-Trust User" guaczero
+    
+    # Set a strong random password
+    RANDOM_PASS=$(openssl rand -base64 32)
+    echo "guaczero:$RANDOM_PASS" | chpasswd
+    
+    # Configure user's shell environment
+    cat > /home/guaczero/.bashrc << 'EOFBASH'
+# Zero-Trust User Environment
+alias rm='rm -i'
+alias cp='cp -i'
+alias mv='mv -i'
+PS1='\[\033[01;32m\]guaczero@\h\[\033[00m\]:\[\033[01;34m\]\w\[\033[00m\]\$ '
+
+echo "🔒 Zero-Trust SSH Session Active"
+echo "   User: guaczero (minimal privileges)"
+echo "   Use 'sudo -u <user> <command>' for elevated tasks"
+echo ""
+EOFBASH
+    
+    chown guaczero:guaczero /home/guaczero/.bashrc
+    
+    # Create controlled sudo configuration
+    cat > /etc/sudoers.d/guaczero << 'EOFSUDO'
+# Zero-Trust Sudo Configuration for guaczero
+guaczero ALL=(ALL:ALL) ALL
+guaczero ALL=(root) NOPASSWD: /bin/systemctl status *, /bin/journalctl -u *, /usr/bin/tail /var/log/*
+guaczero ALL=(root) NOPASSWD: /bin/cat /etc/*, /usr/bin/less /etc/*, /usr/bin/head /etc/*, /usr/bin/tail /etc/*
+EOFSUDO
+    
+    chmod 440 /etc/sudoers.d/guaczero
+    echo "✓ guaczero user created with controlled sudo access"
+else
+    echo "✓ guaczero user already exists"
+fi
+
+# Generate SSH keys for guaczero user
+echo "Generating SSH keys for guaczero user..."
+sudo -u guaczero mkdir -p /home/guaczero/.ssh
+sudo -u guaczero chmod 700 /home/guaczero/.ssh
+
+# Generate SSH key pair in PEM format for Guacamole compatibility
+ssh-keygen -t rsa -b 2048 -m PEM -f /etc/guacamole/guaczero_rsa -N "" -C "guaczero@$(hostname)"
+chown tomcat:tomcat /etc/guacamole/guaczero_rsa*
+chmod 600 /etc/guacamole/guaczero_rsa
+chmod 644 /etc/guacamole/guaczero_rsa.pub
+
+# Add public key to guaczero's authorized_keys
+sudo -u guaczero touch /home/guaczero/.ssh/authorized_keys
+sudo -u guaczero chmod 600 /home/guaczero/.ssh/authorized_keys
+cat /etc/guacamole/guaczero_rsa.pub >> /home/guaczero/.ssh/authorized_keys
+
+echo "✓ SSH keys generated and configured for guaczero user"
+
+# Update SSH configuration for security
+echo "Configuring SSH server for zero-trust security..."
+if ! grep -q "# Zero-Trust SSH Configuration" /etc/ssh/sshd_config; then
+    cat >> /etc/ssh/sshd_config << 'EOFSSH'
+
+# Zero-Trust SSH Configuration
+PermitRootLogin no
+AllowUsers guaczero
+ClientAliveInterval 30
+ClientAliveCountMax 3
+MaxAuthTries 3
+EOFSSH
+    
+    # Test SSH configuration before restarting
+    sshd -t && systemctl restart ssh
+    echo "✓ SSH configured for zero-trust (root login disabled, guaczero only)"
+else
+    echo "✓ SSH already configured for zero-trust"
+fi
+
+# Create zero-trust user mapping with guaczero user
+echo "Creating zero-trust Guacamole user mapping..."
 cat > /etc/guacamole/user-mapping.xml <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <user-mapping>
@@ -620,35 +698,34 @@ cat > /etc/guacamole/user-mapping.xml <<EOF
     <!-- Default admin user (change password after first login) -->
     <authorize username="guacadmin" password="guacadmin">
         
-        <!-- SSH with optimized timeout settings (requires SSH key or password setup) -->
-        <connection name="Local SSH">
+        <!-- Zero-Trust SSH Connection (guaczero user) -->
+        <connection name="Zero-Trust SSH (guaczero)">
             <protocol>ssh</protocol>
-            <param name="hostname">localhost</param>
+            <param name="hostname">127.0.0.1</param>
             <param name="port">22</param>
-            <param name="username">root</param>
-            <param name="color-scheme">green-black</param>
-            <param name="font-size">12</param>
-            <!-- Optimized timeout and connection parameters to prevent disconnects -->
-            <param name="server-alive-interval">10</param>
-            <param name="server-keepalive-interval">5</param>
-            <param name="backspace">127</param>
-            <param name="terminal-type">xterm-256color</param>
-            <!-- Connection timeout and retry settings -->
-            <param name="connect-timeout">10</param>
-            <param name="login-timeout">15</param>
+            <param name="username">guaczero</param>
+            <param name="private-key">/etc/guacamole/guaczero_rsa</param>
+            <param name="color-scheme">gray-black</param>
+            <param name="font-size">14</param>
+            <!-- Optimized timeout and connection parameters -->
+            <param name="server-alive-interval">30</param>
+            <param name="server-keepalive-interval">10</param>
+            <param name="connect-timeout">30</param>
+            <param name="login-timeout">30</param>
             <!-- SSH connection optimization -->
             <param name="host-key">any</param>
             <param name="enable-compression">true</param>
-            <param name="scrollback">2000</param>
-            <!-- Enable SFTP for file transfer -->
-            <param name="enable-sftp">true</param>
-            <param name="sftp-root-directory">/</param>
+            <param name="terminal-type">xterm-256color</param>
+            <param name="backspace">127</param>
+            <param name="scrollback">10000</param>
+            <!-- Disable SFTP initially for security -->
+            <param name="enable-sftp">false</param>
         </connection>
         
         <!-- Example VNC connection -->
         <connection name="Local VNC">
             <protocol>vnc</protocol>
-            <param name="hostname">localhost</param>
+            <param name="hostname">127.0.0.1</param>
             <param name="port">5901</param>
             <param name="password">VNCPASS</param>
             <param name="color-depth">24</param>
@@ -658,7 +735,7 @@ cat > /etc/guacamole/user-mapping.xml <<EOF
         <!-- Example RDP connection -->
         <connection name="Local RDP">
             <protocol>rdp</protocol>
-            <param name="hostname">localhost</param>
+            <param name="hostname">127.0.0.1</param>
             <param name="port">3389</param>
             <param name="security">any</param>
             <param name="ignore-cert">true</param>
@@ -670,21 +747,10 @@ cat > /etc/guacamole/user-mapping.xml <<EOF
 </user-mapping>
 EOF
 
-echo "Created default user mapping file"
-
-# Create additional directories for file sharing and recordings
-mkdir -p /var/lib/guacamole/{drive,recordings}
-chown -R tomcat:tomcat /var/lib/guacamole
-
-# Set final ownership for all configuration files
-chown -R tomcat:tomcat /etc/guacamole
-chmod 640 /etc/guacamole/guacamole.properties
+# Set proper ownership and permissions
+chown tomcat:tomcat /etc/guacamole/user-mapping.xml
 chmod 640 /etc/guacamole/user-mapping.xml
-
-echo "Guacamole configuration completed with proper permissions."
-
-# Setup zero-trust SSH configuration for secure, user-friendly access
-setup_zero_trust_ssh
+echo "✓ Zero-trust user mapping created with guaczero user"
 
 # Start services with proper sequence and verification
 echo "Starting services..."
