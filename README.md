@@ -49,23 +49,20 @@ sudo ./test-guacamole-installer.sh
 
 # SSH configuration troubleshooting (uses traditional RSA PEM key format)
 sudo ./fix-guacamole-connection-entries.sh
-
-# Debug SSH key formats for libssh2 compatibility
-sudo ./debug-ssh-key-formats.sh
 ```
 
 ### Technical Notes:
 
 **SSH Key Format Requirements:**
-- Uses PKCS#8 format (`-----BEGIN PRIVATE KEY-----`) for libssh2 compatibility
-- Traditional PEM format (`-----BEGIN RSA PRIVATE KEY-----`) causes "Unsupported private key file format" error
-- Keys generated with OpenSSL for maximum compatibility with guacd/libssh2
+- Uses Traditional RSA PEM format (`-----BEGIN RSA PRIVATE KEY-----`) for libssh2 compatibility
+- PKCS#8 format (`-----BEGIN PRIVATE KEY-----`) causes "Unsupported private key file format" error
+- Keys generated with OpenSSL using `-traditional` flag for maximum compatibility with guacd/libssh2
 
 **Service Architecture:**
 - **Guacamole**: 1.5.5 (client-side)
 - **guacd**: 1.5.5 (server-side daemon with libssh2 integration)
 - **Tomcat**: 9.0.89 (manual installation for Ubuntu 24.04 compatibility)
-- **SSH Library**: libssh2 1.11.0 (requires PKCS#8 key format)
+- **SSH Library**: libssh2 1.11.0 (requires Traditional RSA PEM key format)
 
 ### Common SSH Issues:
 

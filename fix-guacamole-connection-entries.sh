@@ -280,5 +280,4 @@ else
     echo "⚠️  WARNING: SSH connection test failed"
     echo "💡 Check logs: journalctl -u ssh -n 20"
     echo "🔧 Monitor: ./monitor-guacamole-ssh-connection.sh"
-    echo "🐛 Debug: ./debug-ssh-key-formats.sh"
 fi
