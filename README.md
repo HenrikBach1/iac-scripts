@@ -47,8 +47,8 @@ sudo ./test-guacamole-installer.sh
 # Monitor SSH connections in real-time
 ./monitor-guacamole-ssh-connection.sh
 
-# SSH configuration troubleshooting (uses traditional RSA PEM key format)
-sudo ./fix-guacamole-connection-entries.sh
+# The installation script has comprehensive self-healing
+# No separate fix script needed - just re-run the installer if issues occur
 ```
 
 ### Technical Notes:
@@ -69,7 +69,7 @@ sudo ./fix-guacamole-connection-entries.sh
 **SSH Connection Fails?**
 - **Known hosts error**: `sudo rm -rf /var/lib/tomcat/.ssh`
 - **Key format error**: SSH key must be PEM format (`-----BEGIN RSA PRIVATE KEY-----`)
-- **Run diagnostic**: `sudo ./fix-guacamole-connection-entries.sh`
+- **Re-run installer**: The installation script has self-healing capabilities for most issues
 
 **Expected Connection Flow:**
 1. ✅ SSH key imported successfully
@@ -168,11 +168,10 @@ For more details on using these commands and accessing the container via VS Code
 
 ### Infrastructure & Services
 - **[Guacamole Installation](GUACAMOLE-INSTALLATION.md)**: Complete Apache Guacamole deployment with Tomcat 9
-  - `install-java-tomcat-and-guacamole-in-ubuntu-24.04.sh` - Main installation script (PKCS#8 keys)
+  - `install-java-tomcat-and-guacamole-in-ubuntu-24.04.sh` - Main installation script (includes SSH+VNC support)
   - `test-guacamole-installer.sh` - Comprehensive verification testing
-  - `fix-guacamole-connection-entries.sh` - SSH troubleshooting with PKCS#8 key regeneration
   - `monitor-guacamole-ssh-connection.sh` - Real-time connection monitoring
-  - `debug-ssh-key-formats.sh` - SSH key format compatibility testing tool
+  - Note: The installation script has comprehensive self-healing - no separate fix script needed
 - **Docker User Management**: `add-user-to-docker.yml` - Ansible playbook for Docker access
 - **Java & Tomcat Setup**: Automated installation and configuration scripts
 
