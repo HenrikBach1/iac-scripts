@@ -8,7 +8,7 @@ This guide covers the complete Apache Guacamole installation process for Ubuntu 
 - ✅ **Tomcat 9 Manual Installation** - Solves Ubuntu 24.04 package availability issues
 - ✅ **Java EE Compatibility** - Avoids Jakarta EE servlet API conflicts  
 - ✅ **Zero-Trust SSH Setup** - Automated secure SSH key authentication
-- ✅ **SSH Key Format Fix** - PKCS#8 format solution for libssh2 compatibility
+- ✅ **SSH Key Format Fix** - Traditional RSA PEM format solution for libssh2 compatibility
 - ✅ **Comprehensive Testing** - Production-ready verification scripts
 - ✅ **Advanced Troubleshooting** - Complete diagnostic and repair tools
 
@@ -606,247 +606,57 @@ sudo -u tomcat ssh -o ConnectTimeout=5 -i /etc/guacamole/guaczero_rsa guaczero@l
 
 **🔧 SOLUTION FOUND: SSH Key Format for Guacamole/libssh2 Compatibility**
 
-The persistent "Unsupported private key file format" error has been resolved. The issue was that guacd's SSH client (libguac-client-ssh) uses libssh2, which requires SSH keys in **PKCS#8 format** rather than traditional PEM format.
+The persistent "Unsupported private key file format" error has been resolved. The issue was that guacd's SSH client (libguac-client-ssh) uses libssh2, which requires SSH keys in **Traditional RSA PEM format** generated with OpenSSL's `-traditional` flag.
 
-**✅ Required Format (PKCS#8):** `-----BEGIN PRIVATE KEY-----`
-**❌ Problematic Format (Traditional PEM):** `-----BEGIN RSA PRIVATE KEY-----`  
+**✅ Required Format (Traditional RSA PEM):** `-----BEGIN RSA PRIVATE KEY-----`
+**❌ Problematic Format (PKCS#8):** `-----BEGIN PRIVATE KEY-----`  
 **❌ Incompatible Format (OpenSSH):** `-----BEGIN OPENSSH PRIVATE KEY-----`
+
+### Working Key Generation Solution
+
+```bash
+# CORRECT method for libssh2 compatibility
+openssl genrsa -out /tmp/temp_rsa_key.pem 2048
+openssl rsa -in /tmp/temp_rsa_key.pem -out /etc/guacamole/guaczero_rsa -traditional
+rm -f /tmp/temp_rsa_key.pem
+ssh-keygen -y -f /etc/guacamole/guaczero_rsa > /etc/guacamole/guaczero_rsa.pub
+```
 
 ### Root Cause Analysis
 
-The issue stems from guacd's SSH client implementation:
-- **Component**: libguac-client-ssh.so (Guacamole SSH client)
-- **Dependency**: libssh2 version 1.11.0 
-- **Issue**: libssh2 is very particular about SSH key formats and prefers PKCS#8 over traditional PEM
+The issue was specifically with libssh2's handling of different private key formats. While OpenSSL 3.x defaults to PKCS#8 format for new key generation, libssh2 1.11.0 (as used by guacd) has better compatibility with the traditional RSA PEM format. The `-traditional` flag in OpenSSL forces the output to use the older RSA format that libssh2 can reliably parse.
 
-**Library Chain:**
-```
-guacd → libguac-client-ssh.so → libssh2.so.1 (v1.11.0)
-```
+This is a compatibility bridge between modern OpenSSL defaults and legacy SSH library expectations in the Guacamole/guacd stack.
 
-### Key Format Comparison Table:
+## SSH Key Format Fix - Final Solution
 
-| Format | Header | Status | libssh2 Support |
-|--------|--------|--------|-----------------|
-| **PKCS#8** | `-----BEGIN PRIVATE KEY-----` | ✅ **Working** | Full support |
-| Traditional PEM | `-----BEGIN RSA PRIVATE KEY-----` | ❌ **Problematic** | Limited/buggy |
-| OpenSSH | `-----BEGIN OPENSSH PRIVATE KEY-----` | ❌ **Incompatible** | Not supported |
+### Status: ✅ RESOLVED
 
-### Technical Details
+**Date**: June 30, 2025  
+**Issue**: `Public key authentication failed: Unable to extract public key from private key file: Unsupported private key file format`  
+**Root Cause**: libssh2 1.11.0 compatibility issue with PKCS#8 format SSH keys  
+**Solution**: Use traditional RSA PEM format with OpenSSL `-traditional` flag
 
-**System Information:**
-- **OS**: Ubuntu 24.04 LTS
-- **Guacamole**: 1.5.5
-- **guacd**: 1.5.5
-- **libssh2**: 1.11.0-4.1build2
-- **OpenSSL**: 3.0.13
+### Key Format Compatibility Matrix
 
-**Key Generation Solution:**
+| Format | Header | libssh2 1.11.0 Status | Guacamole Web UI |
+|--------|--------|----------------------|------------------|
+| Traditional RSA PEM | `-----BEGIN RSA PRIVATE KEY-----` | ✅ **Working** | ✅ **Working** |
+| PKCS#8 | `-----BEGIN PRIVATE KEY-----` | ❌ **Fails** | ❌ **Fails** |
+| OpenSSH | `-----BEGIN OPENSSH PRIVATE KEY-----` | ❌ **Not Supported** | ❌ **Not Supported** |
+
+### Working Key Generation Solution
+
 ```bash
-# ✅ CORRECT (PKCS#8 format - compatible with libssh2)
-openssl genrsa -out /etc/guacamole/guaczero_rsa 2048
+# CORRECT method for libssh2 compatibility
+openssl genrsa -out /tmp/temp_rsa_key.pem 2048
+openssl rsa -in /tmp/temp_rsa_key.pem -out /etc/guacamole/guaczero_rsa -traditional
+rm -f /tmp/temp_rsa_key.pem
 ssh-keygen -y -f /etc/guacamole/guaczero_rsa > /etc/guacamole/guaczero_rsa.pub
-
-# ❌ PROBLEMATIC (Traditional PEM - causes libssh2 issues)
-ssh-keygen -t rsa -b 2048 -m PEM -f /etc/guacamole/guaczero_rsa -N "" -C "guaczero@guacamole"
-
-# ❌ WRONG (OpenSSH format - completely incompatible)
-ssh-keygen -t rsa -b 2048 -f /etc/guacamole/guaczero_rsa -N ""
 ```
 
-### Key Validation Commands:
-```bash
-# Check format
-head -1 /etc/guacamole/guaczero_rsa
-# Expected: -----BEGIN PRIVATE KEY-----
+### Root Cause Analysis
 
-# Validate key
-openssl rsa -in /etc/guacamole/guaczero_rsa -check -noout
-# Expected: RSA key ok
+The issue was specifically with libssh2's handling of different private key formats. While OpenSSL 3.x defaults to PKCS#8 format for new key generation, libssh2 1.11.0 (as used by guacd) has better compatibility with the traditional RSA PEM format. The `-traditional` flag in OpenSSL forces the output to use the older RSA format that libssh2 can reliably parse.
 
-# Test SSH connection
-ssh -i /etc/guacamole/guaczero_rsa -o StrictHostKeyChecking=no guaczero@localhost whoami
-# Expected: guaczero
-```
-
-### Expected Log Results
-
-**Before Fix:**
-```
-guacd[99694]: Auth key successfully imported.
-guacd[99694]: Public key authentication failed: Unable to extract public key from private key file: Unsupported private key file format
-```
-
-**After Fix:**
-```
-guacd[99694]: Auth key successfully imported.
-guacd[99694]: SSH connection established successfully
-```
-
-#### Complete SSH Fix Procedure
-
-If SSH connections fail with "Unsupported private key file format" error:
-
-### Quick Fix (Automated):
-```bash
-# Run the comprehensive fix script (uses PKCS#8 format)
-sudo ./fix-guacamole-connection-entries.sh
-
-# This script will:
-# 1. Ensure guaczero user exists
-# 2. Configure zero-trust SSH server settings  
-# 3. Generate SSH keys in PKCS#8 format (libssh2 compatible)
-# 4. Update Guacamole user-mapping.xml
-# 5. Remove all known_hosts files
-# 6. Restart all services
-# 7. Test the connection
-```
-
-### Comprehensive Troubleshooting Workflow
-
-#### Step 1: Diagnose the Current Issue
-```bash
-# Check current key format
-head -1 /etc/guacamole/guaczero_rsa
-# Expected: -----BEGIN PRIVATE KEY----- (PKCS#8)
-# Problematic: -----BEGIN RSA PRIVATE KEY----- (Traditional PEM)
-# Wrong: -----BEGIN OPENSSH PRIVATE KEY----- (OpenSSH)
-
-# Check recent guacd logs for error patterns
-journalctl -u guacd --since "10 minutes ago" | grep -E "Auth key|private key|format"
-```
-
-#### Step 2: Manual PKCS#8 Key Generation
-```bash
-# Backup current key
-cp /etc/guacamole/guaczero_rsa /etc/guacamole/guaczero_rsa.backup
-
-# Generate new key in PKCS#8 format using OpenSSL
-openssl genrsa -out /etc/guacamole/guaczero_rsa 2048
-ssh-keygen -y -f /etc/guacamole/guaczero_rsa > /etc/guacamole/guaczero_rsa.pub
-
-# Verify the format is correct
-if head -1 /etc/guacamole/guaczero_rsa | grep -q "BEGIN PRIVATE KEY"; then
-    echo "✅ Key is in PKCS#8 format (compatible)"
-else
-    echo "❌ Key is not in PKCS#8 format"
-fi
-
-# Validate key integrity
-openssl rsa -in /etc/guacamole/guaczero_rsa -check -noout
-# Expected output: RSA key ok
-```
-
-#### Step 3: Set Proper Permissions
-```bash
-# Set correct ownership and permissions
-chown tomcat:tomcat /etc/guacamole/guaczero_rsa*
-chmod 600 /etc/guacamole/guaczero_rsa
-chmod 644 /etc/guacamole/guaczero_rsa.pub
-
-# Update authorized_keys for guaczero user
-cp /etc/guacamole/guaczero_rsa.pub /home/guaczero/.ssh/authorized_keys
-chown guaczero:guaczero /home/guaczero/.ssh/authorized_keys
-chmod 600 /home/guaczero/.ssh/authorized_keys
-```
-
-#### Step 4: Clean Known Hosts (Prevent Parsing Errors)
-```bash
-# Remove all known_hosts files that could cause parsing errors
-rm -rf /var/lib/tomcat/.ssh
-rm -f /etc/ssh/ssh_known_hosts
-
-# Remove specific host entries
-ssh-keygen -R localhost 2>/dev/null || true
-ssh-keygen -R 127.0.0.1 2>/dev/null || true
-ssh-keygen -R ::1 2>/dev/null || true
-```
-
-#### Step 5: Restart Services and Test
-```bash
-# Restart services in correct order
-systemctl restart guacd
-systemctl restart tomcat9
-sleep 10
-
-# Test manual SSH connection
-ssh -i /etc/guacamole/guaczero_rsa -o StrictHostKeyChecking=no guaczero@localhost whoami
-# Expected output: guaczero
-
-# Test as tomcat user (how Guacamole connects)
-sudo -u tomcat ssh -i /etc/guacamole/guaczero_rsa -o StrictHostKeyChecking=no guaczero@localhost whoami
-# Expected output: guaczero
-
-# Monitor guacd logs for successful connection
-journalctl -u guacd -f
-# Should show "Auth key successfully imported" without format errors
-```
-
-### Debug Tools and Monitoring
-
-#### Real-time Connection Monitoring:
-```bash
-# Monitor SSH connections in real-time
-./monitor-guacamole-ssh-connection.sh
-```
-
-#### Debug Key Formats:
-```bash
-# Test different key formats to find compatibility
-sudo ./debug-ssh-key-formats.sh
-```
-
-#### Advanced Diagnostics:
-```bash
-# Check library dependencies
-ldd /usr/local/lib/libguac-client-ssh.so.0.0.0 | grep ssh
-
-# Verify libssh2 version
-dpkg -l | grep libssh2
-
-# Check file encoding
-file /etc/guacamole/guaczero_rsa
-
-# Test OpenSSL key operations
-openssl rsa -in /etc/guacamole/guaczero_rsa -text -noout | head -5
-```
-
-### Implementation Status in Scripts
-
-All scripts have been updated to use PKCS#8 format by default:
-
-✅ **`install-java-tomcat-and-guacamole-in-ubuntu-24.04.sh`** - Main installer uses PKCS#8 keys
-✅ **`fix-guacamole-connection-entries.sh`** - Troubleshooting script with PKCS#8 regeneration  
-✅ **`test-guacamole-installer.sh`** - Validation script checks PKCS#8 format
-✅ **`debug-ssh-key-formats.sh`** - Debugging tool for key format testing
-
-### Long-term Implications and Benefits
-
-This PKCS#8 format fix ensures:
-
-1. **Compatibility**: Works with current and future libssh2 versions
-2. **Reliability**: Eliminates the persistent "Unsupported private key file format" error
-3. **Security**: Maintains zero-trust SSH model with proper key authentication  
-4. **Maintainability**: All scripts generate keys in the correct format by default
-5. **Standardization**: PKCS#8 is the modern standard for private key storage
-6. **Performance**: Better performance with native libssh2 format support
-
-### References and Technical Documentation
-
-- **libssh2 Documentation**: PKCS#8 is the preferred format for private keys
-- **OpenSSL Documentation**: Default key generation produces PKCS#8 format
-- **RFC 5208**: PKCS#8 standard for private key information syntax specification
-- **Apache Guacamole Documentation**: SSH key authentication requirements
-- **Ubuntu 24.04**: libssh2 version 1.11.0 compatibility notes
-
-### Summary of SSH Key Format Solution
-
-**Status**: ✅ **RESOLVED** - PKCS#8 format keys work perfectly with Guacamole/libssh2
-
-The persistent "Unsupported private key file format" error that plagued many Guacamole installations has been definitively solved by using OpenSSL-generated PKCS#8 format keys instead of traditional PEM format keys. This solution is now integrated into all installation and troubleshooting scripts, ensuring reliable SSH key authentication for zero-trust Guacamole deployments.
-
-**Key Success Indicators:**
-- ✅ Manual SSH test: `ssh -i /etc/guacamole/guaczero_rsa guaczero@localhost whoami` returns `guaczero`
-- ✅ Guacamole web interface: "Zero-Trust SSH (guaczero)" connection works without errors
-- ✅ Log monitoring: `journalctl -u guacd -f` shows "Auth key successfully imported" and successful connections
-- ✅ Key validation: `openssl rsa -in /etc/guacamole/guaczero_rsa -check -noout` returns "RSA key ok"
+This is a compatibility bridge between modern OpenSSL defaults and legacy SSH library expectations in the Guacamole/guacd stack.

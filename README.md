@@ -13,8 +13,8 @@ The `install-java-tomcat-and-guacamole-in-ubuntu-24.04.sh` script provides a rob
 - **Java EE Compatible**: Uses Tomcat 9 to avoid Jakarta EE servlet API conflicts
 - **Secure Deployment**: Deploys as subdirectory webapp (`/guacamole/`) rather than ROOT
 - **Zero-Trust SSH**: Automatically creates `guaczero` user with minimal privileges
-- **SSH Key Authentication**: Password-less access using PKCS#8 format SSH keys (libssh2 compatible)
-- **Controlled Sudo Access**: Secure privilege escalation when needed
+- **SSH Key Authentication**: Traditional RSA PEM format SSH keys (libssh2 compatible)
+- **Single Secure Shell**: Direct guaczero user access without sudo switching
 - **Comprehensive Testing**: Includes full verification script
 - **Advanced Troubleshooting**: SSH key format debugging tools included
 
@@ -32,14 +32,14 @@ sudo ./test-guacamole-installer.sh
 - **URL**: `http://your-server:8080/guacamole/`
 - **Default Credentials**: `guacadmin/guacadmin` (change immediately!)
 - **Zero-Trust SSH**: "Zero-Trust SSH (guaczero)" connection (automatic SSH key auth)
-- **Minimal Privileges**: User `guaczero` with controlled sudo access
+- **Single Shell Access**: Direct access to guaczero user environment
 
 ### Zero-Trust Security Model:
-- 🔒 **Dedicated User**: `guaczero` user with minimal privileges (no root)
-- 🔑 **SSH Key Only**: Password-less authentication for primary connection
-- 🛡️ **Controlled Escalation**: `sudo` access with password for administrative tasks
+- 🔒 **Dedicated User**: `guaczero` user for secure shell access
+- 🔑 **SSH Key Only**: Traditional RSA PEM format keys for maximum compatibility  
+- �️ **Single Shell**: Clean, direct access without privilege switching requirements
 - 🚫 **Root Disabled**: Root SSH login completely disabled
-- 📝 **Audit Trail**: All privileged actions require explicit sudo
+- 📝 **Minimal Attack Surface**: Single secure connection point
 
 ### Monitoring & Troubleshooting:
 
@@ -47,7 +47,7 @@ sudo ./test-guacamole-installer.sh
 # Monitor SSH connections in real-time
 ./monitor-guacamole-ssh-connection.sh
 
-# SSH configuration troubleshooting (uses PKCS#8 key format)
+# SSH configuration troubleshooting (uses traditional RSA PEM key format)
 sudo ./fix-guacamole-connection-entries.sh
 
 # Debug SSH key formats for libssh2 compatibility

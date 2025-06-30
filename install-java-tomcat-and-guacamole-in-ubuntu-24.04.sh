@@ -656,21 +656,23 @@ echo "Generating SSH keys for guaczero user..."
 sudo -u guaczero mkdir -p /home/guaczero/.ssh
 sudo -u guaczero chmod 700 /home/guaczero/.ssh
 
-# Generate SSH key pair in PKCS#8 format for maximum libssh2 compatibility
-# KEY FIX: Use OpenSSL to generate keys in PKCS#8 format instead of PEM
+# Generate SSH key pair in Traditional RSA PEM format for maximum libssh2 compatibility
+# KEY FIX: Use OpenSSL with -traditional flag to generate compatible RSA keys
 # This resolves the "Unsupported private key file format" error with guacd/libssh2
-echo "Generating SSH keys in PKCS#8 format (optimal for guacd/libssh2)..."
-openssl genrsa -out /etc/guacamole/guaczero_rsa 2048 2>/dev/null
+echo "Generating SSH keys in traditional RSA PEM format (libssh2 compatible)..."
+openssl genrsa -out /tmp/temp_rsa_key.pem 2048 2>/dev/null
+openssl rsa -in /tmp/temp_rsa_key.pem -out /etc/guacamole/guaczero_rsa -traditional 2>/dev/null
+rm -f /tmp/temp_rsa_key.pem
 ssh-keygen -y -f /etc/guacamole/guaczero_rsa > /etc/guacamole/guaczero_rsa.pub
 chown tomcat:tomcat /etc/guacamole/guaczero_rsa*
 chmod 600 /etc/guacamole/guaczero_rsa
 chmod 644 /etc/guacamole/guaczero_rsa.pub
 
 # Verify key format
-if head -1 /etc/guacamole/guaczero_rsa | grep -q "BEGIN PRIVATE KEY"; then
-    echo "✅ SSH key generated in PKCS#8 format (optimal for libssh2)"
+if head -1 /etc/guacamole/guaczero_rsa | grep -q "BEGIN RSA PRIVATE KEY"; then
+    echo "✅ SSH key generated in traditional RSA PEM format (libssh2 compatible)"
 else
-    echo "⚠️  Warning: SSH key format might not be optimal"
+    echo "⚠️  Warning: SSH key format might not be compatible with libssh2"
 fi
 
 # Add public key to guaczero's authorized_keys
