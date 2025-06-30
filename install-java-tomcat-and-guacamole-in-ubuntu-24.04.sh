@@ -2,9 +2,9 @@
 #file=install-java-tomcat-and-guacamole-in-ubuntu-24.04-self-healing.sh
 
 # Apache Guacamole Installation Script for Ubuntu 24.04
-# Version: 2.4 (Self-Healing & VNC Desktop Support)
+# Version: 2.6 (Self-Healing & Dedicated VNC Desktop User)
 # Updated: Uses stable Guacamole 1.5.5 with Tomcat 9 (Java EE support)
-# Description: Automates installation of Guacamole 1.5.5 with Tomcat 9, secure subdirectory deployment, VNC desktop
+# Description: Automates installation of Guacamole 1.5.5 with Tomcat 9, secure subdirectory deployment, dedicated guacuser VNC desktop with random password
 
 # Ensure script is run as root
 if [ "$(id -u)" -ne 0 ]; then
@@ -27,7 +27,8 @@ echo "=== Guacamole ${GUAC_VERSION} Installation ==="
 echo "✓ Using Tomcat 9 (Java EE) with stable Guacamole ${GUAC_VERSION}"
 echo "✓ Secure subdirectory deployment: /guacamole/"
 echo "✓ Self-healing installation with automatic problem resolution"
-echo "✓ VNC Desktop support with XFCE4 and D-Bus integration"
+echo "✓ Dedicated VNC Desktop user (guacuser) with secure random password"  
+echo "✓ XFCE4 desktop environment with D-Bus integration"
 echo ""
 
 # Utility function to get public IP
@@ -710,19 +711,35 @@ apt-get install -y \
 
 echo "✓ VNC server and XFCE desktop installed"
 
-# Configure VNC for guaczero user
-echo "Configuring VNC server for guaczero user..."
+# Configure VNC desktop for guacuser only
+echo "Configuring VNC desktop for guacuser..."
 
-# Create VNC directory and set password
-sudo -u guaczero mkdir -p /home/guaczero/.vnc
+# Generate secure random password for VNC
+GUACUSER_VNC_PASSWORD=$(openssl rand -base64 12 | tr -d "=+/" | cut -c1-12)
 
-# Generate VNC password (same as user password for consistency)
-VNC_PASSWORD="guacpass123"
-echo "$VNC_PASSWORD" | sudo -u guaczero vncpasswd -f > /home/guaczero/.vnc/passwd
-sudo -u guaczero chmod 600 /home/guaczero/.vnc/passwd
+echo "Generated secure VNC password for guacuser: $GUACUSER_VNC_PASSWORD"
 
-# Create VNC startup script for XFCE
-cat > /home/guaczero/.vnc/xstartup << 'EOFVNC'
+# Create guacuser if it doesn't exist
+if ! id "guacuser" &>/dev/null; then
+    useradd -m -s /bin/bash guacuser
+    echo "✓ Created guacuser account"
+fi
+
+# Set password for guacuser (same as VNC password for consistency)
+echo "guacuser:$GUACUSER_VNC_PASSWORD" | chpasswd
+echo "✓ Set secure password for guacuser"
+
+# Configure VNC for guacuser user (Display :1, Port 5901)  
+echo "Setting up VNC desktop for guacuser..."
+sudo -u guacuser mkdir -p /home/guacuser/.vnc
+echo "$GUACUSER_VNC_PASSWORD" | sudo -u guacuser vncpasswd -f > /home/guacuser/.vnc/passwd
+sudo -u guacuser chmod 600 /home/guacuser/.vnc/passwd
+
+# Create Desktop directory
+sudo -u guacuser mkdir -p /home/guacuser/Desktop
+
+# Create VNC startup script for guacuser
+cat > /home/guacuser/.vnc/xstartup << 'EOFVNC'
 #!/bin/bash
 # VNC startup script for XFCE4 with D-Bus support
 
@@ -743,49 +760,52 @@ export XDG_SESSION_DESKTOP=xfce
 exec startxfce4
 EOFVNC
 
-chown guaczero:guaczero /home/guaczero/.vnc/xstartup
-chmod +x /home/guaczero/.vnc/xstartup
+chown guacuser:guacuser /home/guacuser/.vnc/xstartup
+chmod +x /home/guacuser/.vnc/xstartup
 
-# Create systemd service for VNC
-cat > /etc/systemd/system/vncserver@.service << 'EOFSERVICE'
+# Create systemd service for guacuser VNC desktop
+cat > /etc/systemd/system/vncserver-guacuser.service << 'EOFSERVICE'
 [Unit]
-Description=Start TightVNC server at startup
+Description=VNC Desktop Server for guacuser (Display :1)
 After=syslog.target network.target
 
 [Service]
 Type=forking
-User=guaczero
-Group=guaczero
-WorkingDirectory=/home/guaczero
+User=guacuser
+Group=guacuser
+WorkingDirectory=/home/guacuser
 
-PIDFile=/home/guaczero/.vnc/%H:%i.pid
-ExecStartPre=-/usr/bin/vncserver -kill :%i > /dev/null 2>&1
-ExecStart=/usr/bin/vncserver -depth 24 -geometry 1024x768 :%i
-ExecStop=/usr/bin/vncserver -kill :%i
+PIDFile=/home/guacuser/.vnc/%H:1.pid
+ExecStartPre=-/usr/bin/vncserver -kill :1 > /dev/null 2>&1
+ExecStart=/usr/bin/vncserver -depth 24 -geometry 1024x768 :1
+ExecStop=/usr/bin/vncserver -kill :1
 
 [Install]
 WantedBy=multi-user.target
 EOFSERVICE
 
-# Enable and start VNC service
+# Reload systemd and enable VNC service
 systemctl daemon-reload
-systemctl enable vncserver@1.service
-systemctl start vncserver@1.service
+systemctl enable vncserver-guacuser.service
 
-# Wait for VNC to start
+# Start VNC service
+systemctl start vncserver-guacuser.service
+
+# Wait for VNC server to start
 sleep 5
 
-# Verify VNC is running
-if systemctl is-active --quiet vncserver@1.service; then
-    echo "✅ VNC server started successfully on display :1 (port 5901)"
+# Verify VNC server is running
+if systemctl is-active --quiet vncserver-guacuser.service; then
+    echo "✅ VNC Desktop server started successfully on display :1 (port 5901)"
 else
-    echo "⚠️  VNC server startup issue - will retry during service verification..."
+    echo "⚠️  VNC Desktop server startup issue - will retry during service verification..."
 fi
 
-echo "✓ VNC server configured for guaczero user"
+echo -e "$VNC_STATUS"
+
+echo "✓ VNC desktop configured for guacuser"
 echo "   Display: :1 (port 5901)"
-echo "   Password: guacpass123"
-echo "   Desktop: XFCE4"
+echo "   Desktop: XFCE4 with D-Bus support"
 
 # Update SSH configuration for security
 echo "Configuring SSH server for zero-trust security..."
@@ -840,12 +860,12 @@ cat > /etc/guacamole/user-mapping.xml <<EOF
             <param name="enable-sftp">false</param>
         </connection>
         
-        <!-- VNC Desktop Connection (guaczero user) -->
-        <connection name="VNC Desktop (guaczero)">
+        <!-- VNC Desktop Connection (guacuser - desktop environment) -->
+        <connection name="VNC Desktop (guacuser)">
             <protocol>vnc</protocol>
             <param name="hostname">127.0.0.1</param>
             <param name="port">5901</param>
-            <param name="password">guacpass123</param>
+            <param name="password">$GUACUSER_VNC_PASSWORD</param>
             <param name="color-depth">24</param>
             <param name="cursor">local</param>
             <param name="swap-red-blue">false</param>
@@ -854,7 +874,7 @@ cat > /etc/guacamole/user-mapping.xml <<EOF
             <param name="enable-audio">true</param>
             <param name="enable-drive">true</param>
             <param name="drive-name">SharedDrive</param>
-            <param name="drive-path">/home/guaczero/Desktop</param>
+            <param name="drive-path">/home/guacuser/Desktop</param>
         </connection>
         
         <!-- Example RDP connection -->
@@ -1012,10 +1032,10 @@ if [ "$DEPLOYMENT_SUCCESS" = true ]; then
     echo "   Extensions: /etc/guacamole/extensions/"
     echo ""
     echo "🔧 Management Commands:"
-    echo "   Restart services: systemctl restart guacd tomcat9 vncserver@1"
+    echo "   Restart services: systemctl restart guacd tomcat9 vncserver-guacuser"
     echo "   View logs: journalctl -u tomcat9 -f"
-    echo "   Stop services: systemctl stop tomcat9 guacd vncserver@1"
-    echo "   VNC status: systemctl status vncserver@1"
+    echo "   Stop services: systemctl stop tomcat9 guacd vncserver-guacuser"
+    echo "   VNC status: systemctl status vncserver-guacuser"
     echo "   Check public IP: curl -4 -s ifconfig.me"
     echo ""
     echo "🔧 SSH Access Information:"
@@ -1032,13 +1052,18 @@ if [ "$DEPLOYMENT_SUCCESS" = true ]; then
     fi
     echo ""
     echo "🖥️  VNC Desktop Access Information:"
-    echo "   ✅ VNC Server: Configured with XFCE4 desktop"
-    echo "   📡 Connection: 'VNC Desktop (guaczero)' in Guacamole"
-    echo "   🔑 Authentication: Password (guacpass123)"
-    echo "   🎨 Desktop: XFCE4 with Firefox, file manager"
-    echo "   📏 Resolution: 1024x768 (configurable)"
+    echo "   ✅ VNC Desktop: Configured with XFCE4 desktop environment"
+    echo "   📡 Connection: 'VNC Desktop (guacuser)' in Guacamole"
+    echo "   🔑 VNC Password (secure random generated): $GUACUSER_VNC_PASSWORD"
     echo "   🔌 Port: 5901 (VNC display :1)"
-    echo "   👤 User: guaczero (restricted, no sudo access)"
+    echo "   👤 User: guacuser (dedicated desktop user)"
+    echo "   🎨 Desktop: XFCE4 with Firefox, file manager, D-Bus support"
+    echo "   📏 Resolution: 1024x768 (configurable in user-mapping.xml)"
+    echo "   🔧 Management: systemctl restart vncserver-guacuser"
+    echo "   🎨 Desktop: XFCE4 with Firefox, file manager, D-Bus support"
+    echo "   📏 Resolution: 1024x768 (configurable in user-mapping.xml)"
+    echo "   � Management: systemctl restart vncserver-guaczero vncserver-guacuser"
+    echo "   � Recommendation: Use 'VNC Desktop (guacuser)' for better desktop experience"
     
 else
     echo -e "\n❌ \033[1;31mSelf-Healing Installation Failed\033[0m"
