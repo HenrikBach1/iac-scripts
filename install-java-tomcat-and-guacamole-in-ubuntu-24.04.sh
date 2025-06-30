@@ -656,11 +656,22 @@ echo "Generating SSH keys for guaczero user..."
 sudo -u guaczero mkdir -p /home/guaczero/.ssh
 sudo -u guaczero chmod 700 /home/guaczero/.ssh
 
-# Generate SSH key pair in PEM format for Guacamole compatibility
-ssh-keygen -t rsa -b 2048 -m PEM -f /etc/guacamole/guaczero_rsa -N "" -C "guaczero@$(hostname)"
+# Generate SSH key pair in PKCS#8 format for maximum libssh2 compatibility
+# KEY FIX: Use OpenSSL to generate keys in PKCS#8 format instead of PEM
+# This resolves the "Unsupported private key file format" error with guacd/libssh2
+echo "Generating SSH keys in PKCS#8 format (optimal for guacd/libssh2)..."
+openssl genrsa -out /etc/guacamole/guaczero_rsa 2048 2>/dev/null
+ssh-keygen -y -f /etc/guacamole/guaczero_rsa > /etc/guacamole/guaczero_rsa.pub
 chown tomcat:tomcat /etc/guacamole/guaczero_rsa*
 chmod 600 /etc/guacamole/guaczero_rsa
 chmod 644 /etc/guacamole/guaczero_rsa.pub
+
+# Verify key format
+if head -1 /etc/guacamole/guaczero_rsa | grep -q "BEGIN PRIVATE KEY"; then
+    echo "✅ SSH key generated in PKCS#8 format (optimal for libssh2)"
+else
+    echo "⚠️  Warning: SSH key format might not be optimal"
+fi
 
 # Add public key to guaczero's authorized_keys
 sudo -u guaczero touch /home/guaczero/.ssh/authorized_keys

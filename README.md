@@ -13,9 +13,10 @@ The `install-java-tomcat-and-guacamole-in-ubuntu-24.04.sh` script provides a rob
 - **Java EE Compatible**: Uses Tomcat 9 to avoid Jakarta EE servlet API conflicts
 - **Secure Deployment**: Deploys as subdirectory webapp (`/guacamole/`) rather than ROOT
 - **Zero-Trust SSH**: Automatically creates `guaczero` user with minimal privileges
-- **SSH Key Authentication**: Password-less access using automatically generated SSH keys
+- **SSH Key Authentication**: Password-less access using PKCS#8 format SSH keys (libssh2 compatible)
 - **Controlled Sudo Access**: Secure privilege escalation when needed
 - **Comprehensive Testing**: Includes full verification script
+- **Advanced Troubleshooting**: SSH key format debugging tools included
 
 ### Quick Start:
 
@@ -46,9 +47,25 @@ sudo ./test-guacamole-installer.sh
 # Monitor SSH connections in real-time
 ./monitor-guacamole-ssh-connection.sh
 
-# Manual SSH configuration/troubleshooting (if needed)
+# SSH configuration troubleshooting (uses PKCS#8 key format)
 sudo ./fix-guacamole-connection-entries.sh
+
+# Debug SSH key formats for libssh2 compatibility
+sudo ./debug-ssh-key-formats.sh
 ```
+
+### Technical Notes:
+
+**SSH Key Format Requirements:**
+- Uses PKCS#8 format (`-----BEGIN PRIVATE KEY-----`) for libssh2 compatibility
+- Traditional PEM format (`-----BEGIN RSA PRIVATE KEY-----`) causes "Unsupported private key file format" error
+- Keys generated with OpenSSL for maximum compatibility with guacd/libssh2
+
+**Service Architecture:**
+- **Guacamole**: 1.5.5 (client-side)
+- **guacd**: 1.5.5 (server-side daemon with libssh2 integration)
+- **Tomcat**: 9.0.89 (manual installation for Ubuntu 24.04 compatibility)
+- **SSH Library**: libssh2 1.11.0 (requires PKCS#8 key format)
 
 ### Common SSH Issues:
 
@@ -154,8 +171,11 @@ For more details on using these commands and accessing the container via VS Code
 
 ### Infrastructure & Services
 - **[Guacamole Installation](GUACAMOLE-INSTALLATION.md)**: Complete Apache Guacamole deployment with Tomcat 9
-  - `install-java-tomcat-and-guacamole-in-ubuntu-24.04.sh` - Main installation script
+  - `install-java-tomcat-and-guacamole-in-ubuntu-24.04.sh` - Main installation script (PKCS#8 keys)
   - `test-guacamole-installer.sh` - Comprehensive verification testing
+  - `fix-guacamole-connection-entries.sh` - SSH troubleshooting with PKCS#8 key regeneration
+  - `monitor-guacamole-ssh-connection.sh` - Real-time connection monitoring
+  - `debug-ssh-key-formats.sh` - SSH key format compatibility testing tool
 - **Docker User Management**: `add-user-to-docker.yml` - Ansible playbook for Docker access
 - **Java & Tomcat Setup**: Automated installation and configuration scripts
 
@@ -165,6 +185,6 @@ For more details on using these commands and accessing the container via VS Code
 - **VS Code Integration**: Remote development setup and configuration
 
 ### Documentation
-- **[Guacamole Installation Guide](GUACAMOLE-INSTALLATION.md)**: Comprehensive installation and troubleshooting
+- **[Guacamole Installation Guide](GUACAMOLE-INSTALLATION.md)**: Complete installation, SSH key format fix, and troubleshooting
 - **[VS Code Container Access](VSCODE_CONTAINER_ACCESS.md)**: Remote development setup
 - **[Main README](README.md)**: This overview document
