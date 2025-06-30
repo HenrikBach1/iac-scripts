@@ -4,15 +4,15 @@
 # Includes fallback password authentication for reliable connections
 
 echo "=== Guacamole SSH Connection Troubleshooting ==="
-echo "This script provides both passworecho "🌐 Connection Options:"
-echo "   • 'SSH Password (guaczero)': Reliable fallback method"
-echo "   • 'SSH Key (guaczero)': Testing libssh2 compatibility"
-echo "   • Both use guaczero user with appropriate authentication"
+echo "This script provides both password echo "🌐 Connection Options:"
+echo "   • 'SSH Password (guaczero)': Reliable working method"
+echo "   • 'SSH Key (guaczero) - NOT WORKING': Known libssh2 compatibility issue"
+echo "   • Use password authentication as primary connection method"
 echo ""
 echo "💡 Usage:"
-echo "   1. Try 'SSH Password (guaczero)' first (most reliable)"
-echo "   2. Test 'SSH Key (guaczero)' to verify key-based auth"
-echo "   3. Both provide direct shell access as guaczero user"based SSH authentication"
+echo "   1. Use 'SSH Password (guaczero)' - this is the working connection"
+echo "   2. Avoid 'SSH Key (guaczero) - NOT WORKING' until issue is resolved"
+echo "   3. Password method provides reliable shell access as guaczero user"sed SSH authentication"
 echo "Password fallback ensures reliable connections while testing key-based auth"
 echo ""
 
@@ -125,7 +125,10 @@ rm -rf /var/lib/tomcat/.ssh/
 rm -f /etc/guacamole/guaczero_rsa*
 
 # SOLUTION: Generate Traditional RSA PEM format keys using ssh-keygen for maximum libssh2 compatibility
+# NOTE: Despite all efforts, key-based auth still fails in Guacamole web UI with "Unsupported private key file format"
+# This appears to be a persistent libssh2/guacd compatibility issue with Ubuntu 24.04
 echo "Generating SSH keys in traditional RSA PEM format (libssh2 compatible)..."
+echo "⚠️  Note: Key-based auth via Guacamole web UI is currently not working despite correct format"
 
 # Use ssh-keygen with explicit PEM format for best libssh2 compatibility
 # This method is more reliable than OpenSSL conversion for guacd/libssh2
@@ -198,8 +201,10 @@ cat > /etc/guacamole/user-mapping.xml << 'EOF'
             <param name="host-key-base64"></param>
         </connection>
         
-        <!-- Key-based SSH connection (testing libssh2 compatibility) -->
-        <connection name="SSH Key (guaczero)">
+        <!-- Key-based SSH connection (KNOWN ISSUE: Not working due to libssh2 compatibility) -->
+        <!-- Despite correct RSA PEM format, guacd still reports "Unsupported private key file format" -->
+        <!-- This entry is kept for future testing when the issue is resolved -->
+        <connection name="SSH Key (guaczero) - NOT WORKING">
             <protocol>ssh</protocol>
             <param name="hostname">localhost</param>
             <param name="port">22</param>
@@ -299,9 +304,9 @@ echo "🎯 GUACAMOLE SSH FIX SUMMARY"
 echo "======================================"
 echo ""
 echo "🔐 Authentication Methods:"
-echo "   • Password authentication: guaczero / guacpass123"
-echo "   • Key-based authentication: Traditional RSA PEM format"
-echo "   • Both methods available as fallback options"
+echo "   • Password authentication: guaczero / guacpass123 (WORKING)"
+echo "   • Key-based authentication: Traditional RSA PEM format (NOT WORKING)"
+echo "   • Known Issue: libssh2 compatibility problem with Guacamole 1.5.5"
 echo ""
 echo "🔑 Key Format Solution:"
 echo "   • Format: Traditional RSA PEM (-----BEGIN RSA PRIVATE KEY-----)"
@@ -324,12 +329,13 @@ echo "📁 Backup: $BACKUP_DIR"
 
 if [ "$WORKING_METHODS" -gt 0 ]; then
     echo ""
-    echo "✅ SUCCESS: At least one SSH authentication method is working!"
-    echo "🚀 Test your connections in Guacamole now."
+    echo "✅ SUCCESS: Password-based SSH authentication is working!"
+    echo "🚀 Use 'SSH Password (guaczero)' connection in Guacamole."
     if [ "$WORKING_METHODS" -eq 2 ]; then
         echo "🎉 Both password and key-based authentication are working!"
     elif [ "$WORKING_METHODS" -eq 1 ]; then
-        echo "⚠️  Only one authentication method is working - use the working one as fallback"
+        echo "⚠️  Key-based authentication still fails in Guacamole web UI"
+        echo "    (works in terminal but not through guacd/libssh2)"
     fi
 else
     echo ""
