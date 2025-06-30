@@ -637,16 +637,28 @@ EOFBASH
     
     chown guaczero:guaczero /home/guaczero/.bashrc
     
-    # Create controlled sudo configuration
+    # Create restricted sudo configuration - BLOCK all sudo access
     cat > /etc/sudoers.d/guaczero << 'EOFSUDO'
-# Zero-Trust Sudo Configuration for guaczero
-guaczero ALL=(ALL:ALL) ALL
-guaczero ALL=(root) NOPASSWD: /bin/systemctl status *, /bin/journalctl -u *, /usr/bin/tail /var/log/*
-guaczero ALL=(root) NOPASSWD: /bin/cat /etc/*, /usr/bin/less /etc/*, /usr/bin/head /etc/*, /usr/bin/tail /etc/*
+# SECURITY: Completely block sudo access for guaczero user
+guaczero ALL=(ALL) !ALL
 EOFSUDO
     
     chmod 440 /etc/sudoers.d/guaczero
-    echo "✓ guaczero user created with controlled sudo access"
+    
+    # Create a fake sudo command in user's path
+    mkdir -p /home/guaczero/bin
+    cat > /home/guaczero/bin/sudo << 'EOFFAKESUDO'
+#!/bin/bash
+echo "sudo: command not found"
+exit 127
+EOFFAKESUDO
+    chmod +x /home/guaczero/bin/sudo
+    chown -R guaczero:guaczero /home/guaczero/bin
+    
+    # Update bashrc to use restricted PATH
+    sed -i 's|^PS1=.*|export PATH="/home/guaczero/bin:/usr/local/bin:/usr/bin:/bin"\nPS1='"'"'\[\033[01;32m\]guaczero@\h\[\033[00m\]:\[\033[01;34m\]\w\[\033[00m\]\$ '"'"'|' /home/guaczero/.bashrc
+    
+    echo "✓ guaczero user created with NO sudo privileges (completely blocked)"
 else
     echo "✓ guaczero user already exists"
 fi
@@ -678,6 +690,84 @@ sudo -u guaczero chmod 600 /home/guaczero/.ssh/authorized_keys
 cat /etc/guacamole/guaczero_rsa.pub >> /home/guaczero/.ssh/authorized_keys
 
 echo "✓ SSH keys generated and configured for guaczero user"
+
+# Install and configure VNC server for guaczero user
+echo "Installing VNC server and desktop environment..."
+
+# Install VNC server and lightweight desktop
+apt-get update -qq
+apt-get install -y \
+    tightvncserver \
+    xfce4 \
+    xfce4-goodies \
+    firefox \
+    thunar \
+    gnome-icon-theme \
+    fonts-dejavu >/dev/null 2>&1
+
+echo "✓ VNC server and XFCE desktop installed"
+
+# Configure VNC for guaczero user
+echo "Configuring VNC server for guaczero user..."
+
+# Create VNC directory and set password
+sudo -u guaczero mkdir -p /home/guaczero/.vnc
+
+# Generate VNC password (same as user password for consistency)
+VNC_PASSWORD="guacpass123"
+echo "$VNC_PASSWORD" | sudo -u guaczero vncpasswd -f > /home/guaczero/.vnc/passwd
+sudo -u guaczero chmod 600 /home/guaczero/.vnc/passwd
+
+# Create VNC startup script for XFCE
+cat > /home/guaczero/.vnc/xstartup << 'EOFVNC'
+#!/bin/bash
+xrdb $HOME/.Xresources
+startxfce4 &
+EOFVNC
+
+chown guaczero:guaczero /home/guaczero/.vnc/xstartup
+chmod +x /home/guaczero/.vnc/xstartup
+
+# Create systemd service for VNC
+cat > /etc/systemd/system/vncserver@.service << 'EOFSERVICE'
+[Unit]
+Description=Start TightVNC server at startup
+After=syslog.target network.target
+
+[Service]
+Type=forking
+User=guaczero
+Group=guaczero
+WorkingDirectory=/home/guaczero
+
+PIDFile=/home/guaczero/.vnc/%H:%i.pid
+ExecStartPre=-/usr/bin/vncserver -kill :%i > /dev/null 2>&1
+ExecStart=/usr/bin/vncserver -depth 24 -geometry 1024x768 :%i
+ExecStop=/usr/bin/vncserver -kill :%i
+
+[Install]
+WantedBy=multi-user.target
+EOFSERVICE
+
+# Enable and start VNC service
+systemctl daemon-reload
+systemctl enable vncserver@1.service
+systemctl start vncserver@1.service
+
+# Wait for VNC to start
+sleep 5
+
+# Verify VNC is running
+if systemctl is-active --quiet vncserver@1.service; then
+    echo "✅ VNC server started successfully on display :1 (port 5901)"
+else
+    echo "⚠️  VNC server startup issue - will retry during service verification..."
+fi
+
+echo "✓ VNC server configured for guaczero user"
+echo "   Display: :1 (port 5901)"
+echo "   Password: guacpass123"
+echo "   Desktop: XFCE4"
 
 # Update SSH configuration for security
 echo "Configuring SSH server for zero-trust security..."
@@ -732,14 +822,21 @@ cat > /etc/guacamole/user-mapping.xml <<EOF
             <param name="enable-sftp">false</param>
         </connection>
         
-        <!-- Example VNC connection -->
-        <connection name="Local VNC">
+        <!-- VNC Desktop Connection (guaczero user) -->
+        <connection name="VNC Desktop (guaczero)">
             <protocol>vnc</protocol>
             <param name="hostname">127.0.0.1</param>
             <param name="port">5901</param>
-            <param name="password">VNCPASS</param>
+            <param name="password">guacpass123</param>
             <param name="color-depth">24</param>
             <param name="cursor">local</param>
+            <param name="swap-red-blue">false</param>
+            <param name="dest-width">1024</param>
+            <param name="dest-height">768</param>
+            <param name="enable-audio">true</param>
+            <param name="enable-drive">true</param>
+            <param name="drive-name">SharedDrive</param>
+            <param name="drive-path">/home/guaczero/Desktop</param>
         </connection>
         
         <!-- Example RDP connection -->
@@ -914,6 +1011,15 @@ if [ "$DEPLOYMENT_SUCCESS" = true ]; then
         echo "   📡 Connection: 'SSH Server (Zero Trust)' available in Guacamole"
         echo "   🔧 If SSH doesn't work, run: ./fix-guacamole-connection-entries.sh"
     fi
+    echo ""
+    echo "🖥️  VNC Desktop Access Information:"
+    echo "   ✅ VNC Server: Configured with XFCE4 desktop"
+    echo "   📡 Connection: 'VNC Desktop (guaczero)' in Guacamole"
+    echo "   🔑 Authentication: Password (guacpass123)"
+    echo "   🎨 Desktop: XFCE4 with Firefox, file manager"
+    echo "   📏 Resolution: 1024x768 (configurable)"
+    echo "   🔌 Port: 5901 (VNC display :1)"
+    echo "   👤 User: guaczero (restricted, no sudo access)"
     
 else
     echo -e "\n❌ \033[1;31mSelf-Healing Installation Failed\033[0m"
