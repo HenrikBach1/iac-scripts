@@ -19,43 +19,52 @@
 
     - name: Get Ubuntu version info
       set_fact:
-        ubuntu_version: "{{ ansible_distribution_version }}"
+        ubuntu_version: "{{ ansible_facts['distribution_version'] }}"
+        use_podman_repository: "{{ ansible_facts['distribution_version'] is version('22.04', '>=') and ansible_facts['distribution_version'] is version('26.04', '<') }}"
 
-    - name: Add Podman repository key (Ubuntu 22.04+)
-      ansible.builtin.apt_key:
+    - name: Create APT keyring directory (Ubuntu 22.04+)
+      ansible.builtin.file:
+        path: /etc/apt/keyrings
+        state: directory
+        mode: '0755'
+      when: use_podman_repository
+
+    - name: Download Podman repository key (Ubuntu 22.04+)
+      ansible.builtin.get_url:
         url: https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable/xUbuntu_{{ ubuntu_version }}/Release.key
-        state: present
-      when: ansible_distribution_version is version('22.04', '>=')
+        dest: /etc/apt/keyrings/podman.asc
+        mode: '0644'
+      when: use_podman_repository
 
     - name: Add Podman repository (Ubuntu 22.04+)
       apt_repository:
-        repo: "deb https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable/xUbuntu_{{ ubuntu_version }}/ /"
+        repo: "deb [signed-by=/etc/apt/keyrings/podman.asc] https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable/xUbuntu_{{ ubuntu_version }}/ /"
         state: present
         filename: podman
-      when: ansible_distribution_version is version('22.04', '>=')
+      when: use_podman_repository
 
     - name: Update apt cache after adding repository
       apt:
         update_cache: yes
-      when: ansible_distribution_version is version('22.04', '>=')
+      when: use_podman_repository
 
-    - name: Install Podman from repository (Ubuntu 22.04+)
+    - name: Install Podman from repository (Ubuntu 22.04 and 24.04)
       apt:
         name:
           - podman
           - buildah
           - skopeo
         state: present
-      when: ansible_distribution_version is version('22.04', '>=')
+      when: use_podman_repository
 
-    - name: Install Podman from default repos (Ubuntu 20.04 and older)
+    - name: Install Podman from default repositories
       apt:
         name:
           - podman
           - podman-toolbox
         state: present
         update_cache: yes
-      when: ansible_distribution_version is version('22.04', '<')
+      when: not use_podman_repository
 
     - name: Create podman directories for rootless operation
       file:
