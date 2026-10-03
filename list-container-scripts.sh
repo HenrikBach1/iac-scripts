@@ -66,6 +66,10 @@ echo "  run-container-common.sh             - Docker container runner library"
 echo "  run-container-common-podman.sh      - Podman container runner library"
 echo ""
 
+echo "🔧 Prerequisites:"
+echo "  install-ansible.sh                  - Install Ansible on Ubuntu/Debian"
+echo ""
+
 echo "⚙️ Command Installation:"
 echo "  ensure-yocto-container-commands.sh  - Install commands in Docker containers"
 echo "  ensure-yocto-container-commands-podman.sh - Install commands in Podman containers"
