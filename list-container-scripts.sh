@@ -68,6 +68,7 @@ echo ""
 
 echo "🔧 Prerequisites:"
 echo "  install-ansible.sh                  - Install Ansible on Ubuntu/Debian"
+echo "  install-github-cli.sh               - Install GitHub CLI on Ubuntu/Debian"
 echo ""
 
 echo "⚙️ Command Installation:"
