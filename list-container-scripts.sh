@@ -69,6 +69,7 @@ echo ""
 echo "🔧 Prerequisites:"
 echo "  install-ansible.sh                  - Install Ansible on Ubuntu/Debian"
 echo "  install-github-cli.sh               - Install GitHub CLI on Ubuntu/Debian"
+echo "  install-edge.sh                     - Install Microsoft Edge stable on amd64"
 echo ""
 
 echo "⚙️ Command Installation:"
