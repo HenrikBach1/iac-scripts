@@ -378,6 +378,44 @@ git clone -b scarthgap git://git.yoctoproject.org/poky
 git clone -b kirkstone git://git.yoctoproject.org/poky
 ```
 
+## Troubleshooting
+
+### BitBake User Namespace Errors (Ubuntu 24.04+)
+
+If BitBake reports an error such as:
+
+```text
+ERROR: User namespaces are not usable by BitBake, possibly due to AppArmor.
+```
+
+Ubuntu 24.04+ can restrict unprivileged user namespaces. The Docker-based
+Yocto launcher includes security settings intended to allow BitBake to run:
+
+- `--security-opt apparmor:docker-yocto`
+- `--security-opt seccomp:unconfined`
+- `--cap-add=SYS_ADMIN`
+- `--cap-add=SYS_PTRACE`
+- `--cap-add=SYS_CHROOT`
+- `--cap-add=SETUID`
+- `--cap-add=SETGID`
+- `--device /dev/fuse`
+
+If the error persists, recreate the container:
+
+```bash
+./start-yocto-container-docker.sh --restart
+```
+
+For Ubuntu 24.04 and newer, the Podman launcher is also available and is
+recommended when Docker user-namespace restrictions continue to cause problems:
+
+```bash
+./start-yocto-container-podman.sh
+```
+
+For more information, see the
+[Ubuntu 24.04 release notes](https://discourse.ubuntu.com/t/ubuntu-24-04-lts-noble-numbat-release-notes/39890#unprivileged-user-namespace-restrictions).
+
 ## Configuration Persistence
 
 The scripts now support saving and reusing container configurations. This feature allows you to define your preferred settings once and reuse them in future sessions.
