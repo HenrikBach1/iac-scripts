@@ -7,9 +7,15 @@ This document lists all the Podman-based container scripts and their purposes.
 ### `podman-install.yml`
 Ansible playbook to install and configure Podman on Ubuntu systems.
 - Adds Podman repository (Ubuntu 22.04+)
-- Installs Podman, Buildah, and Skopeo
+- Installs Podman, Buildah, and Skopeo without Docker compatibility
 - Configures rootless operation
 - Sets up registries and lingering for user containers
+
+### `uninstall-podman-docker.sh`
+Removes the `podman-docker` package, which provides the `docker` command as a Podman compatibility wrapper.
+- Leaves `podman`, `buildah`, and `skopeo` installed
+- Does not remove separately installed Docker packages
+- Can be run repeatedly without failing if `podman-docker` is already absent
 
 ### `setup-podman-user.yml`
 Ansible playbook to configure Podman for a specific user.
