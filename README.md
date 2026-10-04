@@ -29,6 +29,7 @@ This repository now includes a complete set of Podman-based scripts that provide
 
 #### Installation Scripts
 - `podman-install.yml`: Install and configure Podman (rootless by default)
+- `uninstall-podman-docker.sh`: Remove the `podman-docker` Docker compatibility package without removing Podman
 - `setup-podman-user.yml`: Configure Podman for the current user
 - `yocto-in-podman-install.yml`: Complete Yocto development environment setup with Podman
 - `ros2-in-podman-install.yml`: Complete ROS2 development environment setup with Podman

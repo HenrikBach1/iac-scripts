@@ -54,7 +54,6 @@
           - podman
           - buildah
           - skopeo
-          - podman-docker
         state: present
       when: use_podman_repository
 
@@ -63,7 +62,6 @@
         name:
           - podman
           - podman-toolbox
-          - podman-docker
         state: present
         update_cache: yes
       when: not use_podman_repository
