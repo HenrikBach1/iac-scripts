@@ -409,15 +409,9 @@ if [ $? -eq 0 ]; then
         systemctl --user enable podman.socket >/dev/null 2>&1 || true
     }
     
-    # Set up environment variable for Docker compatibility
+    # Set the endpoint only for processes started by this script. Do not persist
+    # it in the shell profile, because it overrides a separately installed Docker daemon.
     PODMAN_SOCKET_PATH="unix:///run/user/$(id -u)/podman/podman.sock"
-    if ! grep -q "DOCKER_HOST.*podman.sock" ~/.bashrc 2>/dev/null; then
-        echo "# Podman Docker compatibility for VS Code" >> ~/.bashrc
-        echo "export DOCKER_HOST=\"$PODMAN_SOCKET_PATH\"" >> ~/.bashrc
-        log_info "Added DOCKER_HOST environment variable to ~/.bashrc"
-    fi
-    
-    # Export for current session
     export DOCKER_HOST="$PODMAN_SOCKET_PATH"
     
     # If auto-attach is enabled, connect to the container
