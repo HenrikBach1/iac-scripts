@@ -28,6 +28,12 @@ This repository provides scripts for two types of development containers:
 This repository now includes a complete set of Podman-based scripts that provide the same functionality as the Docker scripts but run rootless (no daemon required):
 
 #### Installation Scripts
+- `install-docker.sh`: Install Docker Engine, Buildx, Compose, `newgrp` (`util-linux-extra`), and the Docker service
+- `docker-env.sh`: Switch the current shell from the Podman endpoint to Docker
+- `uninstall-docker-podman.sh`: Remove `podman-docker` and Podman Docker endpoint settings
+
+The Docker installer removes Ubuntu's conflicting `docker-compose-v2` package
+before installing Docker's official `docker-compose-plugin`.
 - `podman-install.yml`: Install and configure Podman (rootless by default)
 - `uninstall-podman-docker.sh`: Remove the `podman-docker` Docker compatibility package without removing Podman
 - `setup-podman-user.yml`: Configure Podman for the current user
@@ -72,6 +78,59 @@ ansible-playbook ros2-in-podman-install.yml
 
 # Connect to ROS2 container
 ./ros2-podman-connect ros2-workspace-container
+```
+
+#### Docker and Podman endpoint selection
+
+The Podman scripts set `DOCKER_HOST` only for processes they start. They do not
+persist the Podman socket in `~/.bashrc`, because that would redirect the Docker
+CLI away from the Docker daemon.
+
+If `DOCKER_HOST` is already set to a Podman socket, use Docker explicitly with:
+
+```bash
+env -u DOCKER_HOST docker run --rm hello-world
+```
+
+After removing the Podman setting, an already-open terminal may still contain
+the inherited variable. Source `docker-env.sh` in that terminal, or open a new
+one:
+
+```bash
+source ./docker-env.sh
+docker info
+docker run --rm hello-world
+```
+
+`install-docker.sh` cannot update the environment of the shell that launched
+it, because a normally executed script runs in a child process. Sourcing
+`docker-env.sh` from inside `install-docker.sh` would therefore only affect the
+installer itself. To clear `DOCKER_HOST` before installation in the current
+terminal, use:
+
+```bash
+source ./docker-env.sh
+./install-docker.sh
+```
+
+Do not source `install-docker.sh` itself. It performs system changes and uses
+`sudo`; run it as a normal executable script.
+
+`install-docker.sh` explicitly runs:
+
+```bash
+source "${script_directory}/docker-env.sh"
+```
+
+for its own Docker checks and prints the exact `source` command needed to
+update the terminal that launched it. This internal source operation still
+cannot modify the parent shell.
+
+The installer always prints this command at the end, even when
+`DOCKER_HOST` was not present when the installer started:
+
+```bash
+source /path/to/iac-scripts/docker-env.sh
 ```
 
 ### Container Management Options

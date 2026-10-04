@@ -17,6 +17,15 @@ Removes the `podman-docker` package, which provides the `docker` command as a Po
 - Does not remove separately installed Docker packages
 - Can be run repeatedly without failing if `podman-docker` is already absent
 
+For a Docker installation that should no longer use Podman as its Docker endpoint,
+use `uninstall-docker-podman.sh`. It also removes Podman `DOCKER_HOST` entries
+from the known shell and environment configuration files.
+
+An already-running shell can still retain an inherited `DOCKER_HOST` value.
+Use `source docker-env.sh` to remove it from the current shell. The Docker
+installation script cannot do this itself when executed normally, because a
+child process cannot modify its parent shell environment.
+
 ### `setup-podman-user.yml`
 Ansible playbook to configure Podman for a specific user.
 - Creates Podman configuration directories
